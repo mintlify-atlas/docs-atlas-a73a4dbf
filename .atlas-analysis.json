@@ -1,0 +1,154 @@
+{
+  "projectType": "framework",
+  "projectName": "SDD Plugin for Claude Code",
+  "projectDescription": "Specification-Driven Development framework that transforms requirements into production code through a structured, auditable pipeline based on SWEBOK v4.",
+  "theme": "aspen",
+  "primaryColor": "#2563eb",
+  "lightColor": "#60a5fa",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "installation", "quickstart"]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/pipeline-overview",
+              "concepts/traceability",
+              "concepts/artifacts",
+              "concepts/swebok-compliance"
+            ]
+          },
+          {
+            "group": "Pipeline Stages",
+            "pages": [
+              "pipeline/requirements-engineer",
+              "pipeline/specifications-engineer",
+              "pipeline/spec-auditor",
+              "pipeline/test-planner",
+              "pipeline/plan-architect",
+              "pipeline/task-generator",
+              "pipeline/task-implementer"
+            ]
+          },
+          {
+            "group": "Brownfield Adoption",
+            "pages": [
+              "brownfield/overview",
+              "brownfield/onboarding",
+              "brownfield/reverse-engineer",
+              "brownfield/reconcile",
+              "brownfield/import"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "utilities/pipeline-status",
+              "utilities/dashboard",
+              "utilities/traceability-check",
+              "utilities/req-change",
+              "utilities/security-auditor",
+              "utilities/code-index",
+              "utilities/sync-notion",
+              "utilities/session-summary"
+            ]
+          },
+          {
+            "group": "MCP Server",
+            "pages": [
+              "mcp/overview",
+              "mcp/tools",
+              "mcp/resources",
+              "mcp/prompts"
+            ]
+          },
+          {
+            "group": "Automation",
+            "pages": [
+              "automation/hooks",
+              "automation/agents",
+              "automation/guardrails"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Skills API",
+            "pages": [
+              "api/skills/overview",
+              "api/skills/pipeline-skills",
+              "api/skills/brownfield-skills",
+              "api/skills/utility-skills"
+            ]
+          },
+          {
+            "group": "MCP Tools",
+            "pages": [
+              "api/mcp/sdd-query",
+              "api/mcp/sdd-impact",
+              "api/mcp/sdd-context",
+              "api/mcp/sdd-coverage",
+              "api/mcp/sdd-trace"
+            ]
+          },
+          {
+            "group": "Artifact Schemas",
+            "pages": [
+              "api/schemas/pipeline-state",
+              "api/schemas/traceability-graph",
+              "api/schemas/requirements",
+              "api/schemas/specifications",
+              "api/schemas/test-plans",
+              "api/schemas/architecture"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Complete requirements-to-code pipeline with 7 sequential stages",
+    "20 specialized skills covering greenfield, brownfield, and maintenance workflows",
+    "Built-in MCP server with 5 tools for traceability queries and impact analysis",
+    "Automated guardrails via 4 hooks and 8 agents",
+    "Full end-to-end traceability from requirements to tests",
+    "Interactive HTML dashboard with 5 views and live status updates",
+    "SWEBOK v4, OWASP ASVS, IEEE 830, ISO 14764, and C4 Model compliance"
+  ],
+  "publicApiSurface": [
+    "/sdd:requirements-engineer",
+    "/sdd:specifications-engineer",
+    "/sdd:spec-auditor",
+    "/sdd:test-planner",
+    "/sdd:plan-architect",
+    "/sdd:task-generator",
+    "/sdd:task-implementer",
+    "/sdd:onboarding",
+    "/sdd:reverse-engineer",
+    "/sdd:reconcile",
+    "/sdd:import",
+    "/sdd:pipeline-status",
+    "/sdd:dashboard",
+    "/sdd:traceability-check",
+    "/sdd:req-change",
+    "/sdd:security-auditor",
+    "/sdd:code-index",
+    "/sdd:sync-notion",
+    "/sdd:session-summary",
+    "/sdd:setup",
+    "sdd_query(query, type?, domain?, limit?)",
+    "sdd_impact(artifactId, maxDepth?)",
+    "sdd_context(artifactId)",
+    "sdd_coverage(groupBy?)",
+    "sdd_trace(startId, endType?)"
+  ]
+}
