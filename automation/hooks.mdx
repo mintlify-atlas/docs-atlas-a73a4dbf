@@ -75,7 +75,41 @@ When a stage is running, these paths are **prohibited**:
 If a prohibited write is attempted, the hook returns a **denial** with a message explaining the Art. 4 violation.
 </Warning>
 
-## H3: Pipeline state auto-updater
+## H3: Context augmentation hook
+
+**Trigger:** Before any Grep, Glob, Read, Edit, or Write operation  
+**Type:** PreToolUse (Grep, Glob, Read, Edit, Write)  
+**Timeout:** 5 seconds  
+**Script:** `hooks/sdd-augment-hook.js`
+
+### Purpose
+
+Automatically injects SDD traceability context when you search, read, or edit files. This hook enriches file operations with information about which requirements, use cases, and tasks a file implements.
+
+### How it works
+
+The hook matches files by:
+- **File path** — Checks `codeRefs` in the traceability graph
+- **Artifact ID patterns** — Regex matching for REQ-*, UC-*, TASK-* annotations
+- **Symbols** — Code intelligence (when available via `/sdd:code-index`)
+
+### Context injected
+
+For each matched file, the hook adds:
+- Traceability chain (REQ → UC → WF → API → BDD → INV → ADR → TASK → CODE)
+- Coverage status (Complete, In Progress, Specified, Not Started)
+- Last commit SHA (if Git repository)
+- Callers/callees/processes (when code intelligence is available)
+
+### Silent failure
+
+If the traceability graph doesn't exist or the hook encounters an error, it silently returns no context. Tool calls are never blocked.
+
+<Tip>
+Run `/sdd:dashboard` first to generate the traceability graph that this hook reads.
+</Tip>
+
+## H4: Pipeline state auto-updater
 
 **Trigger:** After any successful Write operation  
 **Type:** PostToolUse (Write)  
@@ -109,23 +143,6 @@ The hook only transitions stages from `pending` or `stale` to `running`. It does
 <Note>
 If `pipeline-state.json` doesn't exist, the hook initializes it with all stages set to `pending`.
 </Note>
-
-## H4: Consistency check (placeholder)
-
-**Trigger:** At session end  
-**Type:** Stop  
-**Timeout:** 5 seconds  
-**Command:** `echo {}`
-
-### Purpose
-
-This hook is reserved for future use. Currently, it's a no-op placeholder that can be extended to run consistency checks when a session ends.
-
-### Potential future uses
-
-- Verify that all running stages were properly marked as done
-- Generate a session summary of changes made
-- Check for uncommitted changes in pipeline artifacts
 
 ---
 
