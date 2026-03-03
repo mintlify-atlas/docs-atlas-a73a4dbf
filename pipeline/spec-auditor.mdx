@@ -1,0 +1,238 @@
+---
+title: Spec auditor
+description: Systematic cross-document analysis tool that detects defects in technical specifications
+---
+
+The spec auditor is the third stage in the SDD pipeline, responsible for detecting defects in specifications through systematic analysis and cross-document verification.
+
+## Purpose
+
+This skill helps you:
+- Detect ambiguities, implicit rules, and dangerous silences in specifications
+- Identify contradictions and inconsistencies across documents
+- Verify completeness and traceability
+- Generate actionable audit reports with precise locations and resolution questions
+- Apply corrections systematically after audit questions are answered
+
+## Core principles
+
+### No assumptions
+
+The auditor never assumes behavior not explicitly specified. If something is not documented, it is flagged as a finding.
+
+```
+❌ "Probablemente significa X"
+❌ "Se asume que Y"
+❌ "Por defecto sería Z"
+
+✅ "No está especificado qué ocurre cuando..."
+✅ "Falta definir el comportamiento para..."
+```
+
+### No implementation
+
+The auditor identifies problems and formulates questions, but never proposes implementation code.
+
+```
+❌ "Se podría implementar con..."
+❌ "El código debería..."
+
+✅ "Falta especificar el contrato de..."
+✅ "No hay invariante que garantice..."
+```
+
+### Cross-document analysis
+
+Each finding indicates the documents affected, specific line or section, and related documents that contradict or complement.
+
+## Defect categories
+
+The auditor detects nine categories of specification defects:
+
+### CAT-01: Ambiguities
+
+Terms or phrases that admit multiple interpretations. Signals include words like "appropriate", "reasonable", "adequate", "normally", lack of exact quantifiers, or ambiguous pronouns.
+
+### CAT-02: Implicit rules
+
+Behaviors assumed but not documented. Signals include flows that "obviously" do something, unspecified validations, or assumed operation order.
+
+### CAT-03: Dangerous silences
+
+Uncovered cases that could cause undefined behavior. Signals include flows without error handling, states without exit transitions, unmentioned edge cases, or undefined timeouts.
+
+### CAT-04: Semantic ambiguities
+
+Same term used with different meanings, or different terms for the same concept. Signals include uncontrolled synonyms, terms in glossary with different usage, or capitalization variations.
+
+### CAT-05: Contradictions between documents
+
+Specifications that contradict each other. Signals include different values for the same parameter, incompatible flows, or contradictory permissions.
+
+### CAT-06: Incomplete specifications
+
+Missing documents or empty sections. Signals include unresolved TODOs, "TBD" sections, references to non-existent documents, or empty template fields.
+
+### CAT-07: Weak or absent invariants
+
+Critical business rules without formal invariants, or invariants without specified validation. Signals include restrictions mentioned in text but without INV-ID, invariants without validation queries, or business rules only in use cases.
+
+### CAT-08: Evolution risks
+
+Designs that will hinder predictable future changes. Signals include hardcoded values that could change, strong coupling between modules, lack of extensibility in enums/states, or absence of API versioning.
+
+### CAT-09: Implicit decisions without ADR
+
+Architectural decisions taken without formal documentation. Signals include technologies mentioned without justification, patterns used without explaining alternatives, or undocumented trade-offs.
+
+## Audit process
+
+<Steps>
+
+<Step title="Load baseline">
+Check for existing `audits/AUDIT-BASELINE.md` to avoid re-reporting known findings with status `accepted`, `wont_fix`, or `deferred`.
+</Step>
+
+<Step title="Inventory specifications">
+List all specification documents, identify document types, note versions and last update dates, identify missing documents.
+</Step>
+
+<Step title="Check glossary compliance">
+Extract all terms from `domain/01-GLOSSARY.md` and scan all documents for terms not in glossary, synonyms, or inconsistent capitalization.
+</Step>
+
+<Step title="Analyze cross-references">
+Build reference graph, identify broken references, identify orphan documents, check bidirectional consistency.
+</Step>
+
+<Step title="Verify completeness">
+For each use case verify all sections are filled, for each workflow verify all steps have error handling, for each invariant verify validation rule exists, scan for `[NEEDS CLARIFICATION]` markers.
+</Step>
+
+<Step title="Detect defects">
+Apply each defect category (CAT-01 through CAT-09) systematically, recording findings with location, problem, question, and related documents.
+</Step>
+
+<Step title="Check regression">
+If a previous audit exists, identify modified files since last audit, verify fix integrity, cross-check high-coupling documents, classify findings as new, persistent, or regression.
+</Step>
+
+<Step title="Generate report">
+Produce audit report with executive summary, baseline delta, findings by category, excluded findings, and prioritization recommendations.
+</Step>
+
+</Steps>
+
+## 3C verification protocol
+
+The auditor runs a three-dimensional verification protocol that provides a structural pass/fail gate:
+
+### Dimension 1: Completeness (spec coverage)
+
+- Every REQ traces to at least one spec artifact
+- No orphan specs without traceability to requirements
+- All spec subdirectories populated
+- No placeholder sections (TBD, TODO, empty sections)
+- Traceability chain intact end-to-end
+
+### Dimension 2: Correctness (spec-requirement alignment)
+
+- Semantic match between specs and requirements
+- No contradictions between spec documents
+- All INV codes valid and defined
+- State transitions consistent across documents
+- Permission alignment between use cases and contracts
+
+### Dimension 3: Coherence (cross-spec consistency)
+
+- Glossary adherence in all documents
+- Terminology uniformity (no synonyms)
+- Cross-references valid and resolvable
+- Value consistency across documents
+- Format consistency within document types
+
+Any FAIL in Completeness or Correctness blocks pipeline progression. Coherence failures are warnings that should be resolved but do not block.
+
+## What this stage produces
+
+The spec auditor generates:
+
+- **Audit report** at `audits/AUDIT-{version}.md` with findings categorized by severity (Critical, High, Medium, Low)
+- **3C verification verdict** with pass/fail gate result
+- **Quality scorecard** with metrics (defect density, traceability coverage, orphan rate, clarification density, audit pass rate, cross-reference validity)
+- **Baseline delta** comparing findings against previous audit
+- **Prioritization recommendations** for which findings to resolve first
+
+## Mode fix: Apply audit corrections
+
+After an audit has been performed and audit questions have been answered, use Mode Fix to systematically apply corrections.
+
+<Steps>
+
+<Step title="Locate audit report">
+Search for the most recent audit report in `audits/` and extract every finding with ID, severity, problem, location, question, and answer.
+</Step>
+
+<Step title="Create corrections plan">
+Generate `audits/CORRECTIONS-PLAN-AUDIT-vX.X.md` with all findings and proposed solutions (minimum 2 solutions per finding: recommended + alternative).
+</Step>
+
+<Step title="Choose workflow">
+Ask user to choose between batch mode (apply all recommended solutions) or interactive mode (decide one by one).
+</Step>
+
+<Step title="Execute corrections">
+Process in priority order (Critical → High → Medium → Low). Apply atomic cross-check rule when modifying enums, value objects, states, or entity fields.
+</Step>
+
+<Step title="Update baseline">
+Update `audits/AUDIT-BASELINE.md` with resolved/skipped/deferred findings and produce correction summary.
+</Step>
+
+</Steps>
+
+## Real example
+
+```markdown
+### AMB-001: Tiempo de respuesta "razonable"
+
+**Ubicación:** nfr/PERFORMANCE.md:45
+**Problema:** El término "tiempo de respuesta razonable" no tiene valor cuantificable.
+**Pregunta:** ¿Cuál es el p99 latency aceptable en milisegundos?
+**Documentos relacionados:** contracts/API-extraction.md (no define timeout)
+**Severidad:** Critical
+**Estado:** new
+```
+
+```markdown
+### SIL-001: Sin manejo de timeout en extracción
+
+**Ubicación:** workflows/WF-001-extraction.md:89
+**Problema:** No se especifica qué ocurre si el LLM no responde en el tiempo esperado.
+**Pregunta:** ¿Retry automático? ¿Fallback? ¿Estado final de la Extraction?
+**Documentos relacionados:**
+- domain/04-STATES.md (no hay estado "timeout")
+- nfr/LIMITS.md (define timeout pero no acción)
+**Severidad:** Critical
+**Estado:** new
+```
+
+## Pipeline integration
+
+This skill is **Step 3** of the SDD pipeline:
+
+```
+specifications-engineer → spec/
+        ↓
+spec-auditor (audit) → audits/AUDIT-BASELINE.md (THIS SKILL)
+        ↓
+spec-auditor (fix) → spec/ (corrections)
+        ↓
+plan-architect → plan/
+```
+
+**Input**: Complete `spec/` directory
+
+**Output**: Audit report with findings, corrections plan after fix mode
+
+**Next step**: Run plan-architect to generate implementation plans from audit-clean specifications

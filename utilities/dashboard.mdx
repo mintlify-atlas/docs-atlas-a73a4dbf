@@ -1,0 +1,230 @@
+---
+title: Dashboard
+description: Interactive HTML traceability dashboard with 5 views, live status, and code intelligence
+---
+
+The **Dashboard** generates a self-contained, interactive HTML dashboard that visualizes your entire SDD traceability graph. It scans all pipeline artifacts, extracts IDs and relationships, and produces a comprehensive view with 5 specialized tabs.
+
+<Note>
+  **Version 5.0** (latest): Adds interactive prompts, live status polling, and contextual copy-to-clipboard for all actions.
+</Note>
+
+## When to use
+
+Generate the dashboard when you need to:
+- Visualize the full traceability chain (REQ → UC → WF → API → BDD → INV → ADR → TASK → COMMIT → CODE → TEST)
+- Review requirements coverage by use cases, tests, code, and commits
+- Identify orphaned artifacts and broken references
+- Show stakeholders project health and progress
+- Get contextual next-action prompts with one-click copy
+
+## Invocation
+
+```bash
+/sdd:dashboard                    # Full scan and HTML generation
+```
+
+## Fast path with generate.py
+
+The skill includes a Python script that handles Steps 1-8 automatically:
+
+```bash
+python generate.py --project . --output dashboard/
+```
+
+**When to use fast path:**
+- Large projects (300+ artifacts)
+- Repeated dashboard regeneration
+- CI/CD integration
+
+**When to use manual mode:**
+- First dashboard generation (to see the process)
+- Debugging traceability issues
+- The Python script is not available
+
+## The 5 dashboard views
+
+### 1. Summary view (Executive)
+
+Default landing view designed for non-technical stakeholders:
+
+- **Health Score hero banner**: Letter grade (A-F) with weighted score and 3 actionable recommendations
+- **Next Action card**: Prominent card showing the single most important next step with reason and copy-ready prompt
+- **Coverage progress bars**: Visual progress for REQs with UCs, Code, Tests, and Commits
+- **Activity Feed panel**: Real-time pipeline activity with scrollable feed (updated via JSONP polling every 5s)
+- **Top gaps**: Lists REQs with missing coverage
+- **Artifact breakdown**: Count by type with humanized labels
+- **Pipeline status**: Interactive stage badges with click-to-filter popovers
+- **Color legend**: Explains status dots (Complete, In Progress, Specified, Not Started)
+
+### 2. Matrix view (Traceability)
+
+Condensed traceability matrix showing which REQs trace to which downstream artifacts:
+
+- Rows: REQs
+- Columns: UC, WF, API, BDD, INV, ADR, TASK, CODE, TESTS, COMMITS
+- Color-coded cells: green (full), yellow (partial), gray (spec only), red (untraced)
+- Click any cell to open detail panel with full chain
+- Filters: Domain, Layer, Category, Status
+
+### 3. Classification view (Business Domain)
+
+Groups requirements by business domain and technical layer:
+
+- **Domain cards**: Extraction & Processing, CVA Matching, GDPR Compliance, etc.
+- **Layer breakdown**: Backend (FASE 1-6), Frontend (FASE 7-8), Infrastructure (FASE 0)
+- **Domain stats**: REQ count, coverage percentage, functional category breakdown
+- Drill-down: Click domain to filter matrix view
+
+### 4. Code Coverage view (Implementation)
+
+File-level detail of code and test references:
+
+- **Code stats**: Total files, symbols with refs, uncovered symbols
+- **Test stats**: Total test files, tests with refs, framework detected
+- **Commit stats**: Commits with Refs trailers, commits with Task trailers, unique tasks covered
+- **Symbol table**: Lists functions/classes with their artifact refs and call graph data (when code intelligence available)
+- **Uncovered symbols**: Public/exported symbols with no SDD refs
+- **Process flows**: Execution flows mapped to workflows (from GitNexus)
+
+### 5. Adoption view (Onboarding)
+
+Shows onboarding status for brownfield projects:
+
+- **Journey stepper**: 4 steps (Onboarding → Reverse Engineering → Reconciliation → Import)
+- **Scenario card**: Detected project scenario with confidence and health score
+- **Health dimensions**: 7 dimensions with per-dimension scores (requirements, specs, tests, architecture, traceability, code quality, pipeline state)
+- **Findings panel**: Critical/high findings from reverse engineering (dead code, tech debt, workarounds)
+- **Reconciliation panel**: Alignment percentage, divergences by type, delta stats
+- **Import panel**: External sources processed, items mapped, quality metrics
+- **Graceful empty states**: Each sub-panel shows "Not available" if the corresponding onboarding skill hasn't run
+
+## Interactive features
+
+### Pipeline stage popovers
+
+Click any pipeline stage badge in the header to see:
+- Status and last run date
+- Artifact count
+- Stage-specific prompt with copy button
+- "Filter by Stage" action
+
+### Contextual prompts
+
+Every action in the dashboard has a **Copy** button that generates a Spanish-language, context-aware prompt you can paste directly into Claude Code:
+
+- **Next Action card**: Full prompt explaining why this action is needed
+- **Hero recommendations**: Each recommendation has its own contextual prompt
+- **Stage popovers**: Stage-specific prompts with current context
+- **Toast notification**: Confirms copy with green toast message
+
+### Live status polling
+
+The dashboard loads `./live-status.js` every 5 seconds via JSONP:
+
+- **Live dot indicator**: Pulsing green (active), yellow (stale >60s), hidden (no file)
+- **Activity feed updates**: New entries appear at top with timestamps
+- **Stale detection**: Shows "Possibly stalled" warning if heartbeat stops while status=running
+- **Graceful degradation**: Silent 404 handling, hidden after 3 failures, race condition guard
+
+<Info>
+  The live status file is created as an idle seed by the dashboard skill (Step 9.5). Pipeline skills can overwrite it during execution with real-time progress.
+</Info>
+
+## How it works
+
+### Process overview
+
+1. **Read pipeline state** from `pipeline-state.json`
+2. **Discover artifact directories** (requirements, spec, audits, test, plan, task, src, tests, onboarding, findings, reconciliation, import)
+3. **Scan onboarding artifacts** (5 report types from onboarding skills) → compute adoption stats
+4. **Extract artifact definitions** using patterns from `id-patterns-extended.md`
+5. **Extract relationships** between artifacts (implements, verifies, orchestrates, etc.)
+6. **Scan code references** in `src/` for `Refs:` comments (JSDoc, inline, decorators)
+7. **Scan commit references** in git history for `Refs:` and `Task:` trailers
+8. **Scan test references** in `tests/` for artifact refs in test descriptions
+9. **Classify artifacts** by business domain, technical layer, and functional category
+10. **Build traceability-graph.json** with full schema v3 (includes adoption block)
+11. **Generate HTML files** (index.html, guide.html) from templates
+12. **Generate live status seed file** (live-status.js) for real-time feed
+13. **Open in browser** and report metrics
+
+### Code intelligence enhancement
+
+When `/sdd:code-index` has been run, Step 5 is enhanced:
+
+- Uses `codeIntelligence.symbols[]` for precise symbol data (no regex heuristic)
+- Includes both `artifactRefs` (direct) and `inferredRefs` (transitive from call graph)
+- Creates `inferred-implements` relationships with confidence scores
+- Enriches codeStats with: `symbolsWithInferredRefs`, `uncoveredSymbols`
+- Processes GitNexus execution flows and maps to workflows
+
+<Tip>
+  Run `/sdd:code-index` before dashboard generation for deeper code intelligence.
+</Tip>
+
+## Output artifacts
+
+| File | Purpose |
+|------|--------|
+| `dashboard/traceability-graph.json` | Structured graph of all artifacts and relationships (schema v3) |
+| `dashboard/index.html` | Self-contained HTML dashboard (CSS+JS inline, no CDN dependencies) |
+| `dashboard/guide.html` | Static SDD system guide and dashboard interpretation docs |
+| `dashboard/live-status.js` | JSONP seed file for real-time activity feed |
+
+## Example output
+
+```markdown
+## Dashboard Generated (v5)
+
+| Metric | Value |
+|--------|-------|
+| Total Artifacts | 245 |
+| Artifact Types | REQ:89, UC:23, WF:12, API:18, BDD:34, INV:15, ADR:8, TASK:46 |
+| Total Relationships | 412 |
+| REQs with UCs | 87% (78/89) |
+| REQs with Code | 62% (55/89) |
+| REQs with Tests | 71% (63/89) |
+| REQs with Commits | 58% (52/89) |
+| Code Files Scanned | 85 (120 symbols with refs) |
+| Test Files Scanned | 42 (95 tests with refs) |
+| Commits Scanned | 128 (94 with refs, 87 with tasks) |
+| Classification | 5 domains, 3 layers |
+| Orphaned Artifacts | 3 |
+| Broken References | 1 |
+| Pipeline Stage | task-implementer (FASE-3) |
+
+Files written:
+- `dashboard/traceability-graph.json`
+- `dashboard/index.html`
+- `dashboard/guide.html`
+- `dashboard/live-status.js`
+
+Dashboard opened in default browser.
+```
+
+## Constraints
+
+- **Write only to `dashboard/`**: Never modifies pipeline artifacts
+- **Tolerate partial pipelines**: If only `requirements/` exists, still generates a dashboard
+- **No external dependencies**: HTML file is fully self-contained
+- **Forward-slash paths**: Always uses `/` in file paths, even on Windows
+- **JSON validity**: Output JSON is valid and parseable
+- **Idempotent**: Running multiple times overwrites previous output without side effects
+
+## Related skills
+
+<CardGroup cols={2}>
+  <Card title="Code Index" icon="magnifying-glass-chart" href="/utilities/code-index">
+    Enrich dashboard with GitNexus code intelligence
+  </Card>
+  <Card title="Traceability Check" icon="link" href="/utilities/traceability-check">
+    Text report of broken links and orphans
+  </Card>
+  <Card title="Onboarding" icon="book-open" href="/brownfield/onboarding">
+    Project detector for adoption view
+  </Card>
+  <Card title="Sync Notion" icon="arrows-rotate" href="/utilities/sync-notion">
+    Push dashboard data to Notion databases
+  </Card>
+</CardGroup>

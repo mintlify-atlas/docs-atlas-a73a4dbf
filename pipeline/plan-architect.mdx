@@ -1,0 +1,293 @@
+---
+title: Plan architect
+description: Generate implementation plans from technical specifications through FASE generation, clarification, research, and architecture design
+---
+
+The plan architect bridges the gap between "what the system does" (specs) and "how to build it" (plan) through FASE generation, interactive clarification, technical research, and architecture design.
+
+## Purpose
+
+This skill helps you:
+- Generate FASE (implementation phase) files that map specs to incremental delivery phases
+- Clarify implementation gaps through interactive Q&A
+- Research technical alternatives for pending decisions
+- Design architecture with C4 views, deployment diagrams, and data models
+- Generate per-FASE implementation plans with components, APIs, tests, and data changes
+
+## When to use
+
+Use this skill when:
+- Specs are complete and audit-clean, ready for implementation
+- The `plan/` directory is empty or outdated
+- Starting a new implementation phase and need a blueprint
+- Onboarding developers who need to understand how to build the system
+- Technology decisions need to be formalized before coding begins
+- After spec changes that invalidate previous plan artifacts
+
+## Core principles
+
+### Context-aware clarification
+
+Read ADRs, CLAUDE.md, and CLARIFICATIONS.md before generating questions. Only ask about genuine implementation gaps, not about decisions already documented.
+
+### Specs as single source of truth
+
+Derive the plan from what is specified. Only write to `plan/`. Flag if the plan needs a new or modified spec.
+
+### Incremental over regenerative
+
+Load existing artifacts as baseline. Update sections affected by changes. Preserve decisions from previous clarification sessions.
+
+### Traceability end-to-end
+
+Each section of the plan references spec sources. Each decision has an ADR or CLARIFY-LOG entry. Maintain a traceability matrix: UC → Plan Section → FASE → Component.
+
+### Actionable output
+
+Generate concrete, specific guidance. Use interface sketches derived from contracts. Use ASCII diagrams in markdown (versionable).
+
+## Process
+
+<Steps>
+
+<Step title="Inventory and baseline">
+Read context documents (OVERVIEW, SYSTEM-CONTEXT, CLARIFICATIONS, CLAUDE.md, GLOSSARY), existing ADRs, and FASE files. Load existing plan artifacts as baseline for incremental updates.
+</Step>
+
+<Step title="Spec readiness gate">
+Verify prerequisites: specs exist, audit-clean status, FASE files exist (or trigger generation), requirements exist, security audit complete.
+</Step>
+
+<Step title="FASE generation">
+If FASE files don't exist or `--regenerate-fases` is specified, generate FASE files that map specs to incremental implementation phases.
+
+Each FASE file includes:
+- Title, dependencies, observable value
+- Success criteria checklist from assigned specs
+- Specs to read organized by type
+- Applicable invariants with cumulative inheritance
+- Resulting contracts (endpoints and domain events)
+- Verification commands for key endpoints
+- Scope table (includes/excludes)
+</Step>
+
+<Step title="Clarify for implementation">
+Scan against 10 categories (tech stack, data model, architecture, security, integration, performance, testing, CI/CD, observability, cost). For each category, classify as resolved, partial, or missing. Generate candidate questions (max 10 total) with recommended answers and alternatives.
+
+Present one question at a time interactively. After each accepted answer, log to `plan/CLARIFY-LOG.md` and flag if answer requires new ADR or needs research.
+</Step>
+
+<Step title="Technical research">
+For items flagged as NEEDS_RESEARCH in the clarification phase, launch parallel research agents (TECH-agent for technology stack, PATTERN-agent for architecture patterns). Each agent researches alternatives, evaluates pros/cons, and recommends a selection with rationale.
+</Step>
+
+<Step title="Architecture design">
+Generate architecture views from specs, clarify answers, and research:
+- C4 System Context (L1), Container Diagram (L2), Component Diagram (L3)
+- Deployment view
+- Physical data model with indexes and migration strategy
+- Integration map
+- Security architecture
+</Step>
+
+<Step title="Plan generation">
+Generate master plan (PLAN.md) with technical context, component decomposition, cross-FASE concerns, risk assessment, and developer quickstart.
+
+Generate per-FASE plans (PLAN-FASE-{N}.md) with FASE-specific decisions, component implementation details, API implementation notes, data changes, test strategy with coverage map, dependencies, and acceptance criteria.
+</Step>
+
+<Step title="Validation and traceability">
+Cross-check the plan against specs:
+- UC coverage: Every UC in FASE files has guidance in plan
+- ADR compliance: Every ADR decision reflected in architecture
+- NFR strategies: Every NFR has implementation strategy
+- INV enforcement: Every invariant has enforcement mechanism
+- FASE completeness: Every FASE has corresponding plan file
+- Decision usage: Every CLARIFY-LOG decision used in plan
+</Step>
+
+</Steps>
+
+## FASE generation
+
+FASE files are navigation indices that map specs to incremental implementation phases. They are derived artifacts — always regenerated from specs, never patched incrementally.
+
+**Core principles**:
+- 100% coverage: Every spec file must appear in at least one FASE
+- No content duplication: FASE files only reference specs by path + section
+- Dependencies form a DAG: No circular dependencies between phases
+- Each phase independently testable: Verifiable in isolation given its dependencies
+- Ubiquitous language: Only terms from `domain/01-GLOSSARY.md`
+
+**Phase assignment algorithm**:
+1. Inventory all spec files and extract IDs (UC-NNN, ADR-NNN, INV-XXX-NNN, WF-NNN, RN-NNN)
+2. Apply phase assignment rules based on INV prefix → UC number → ADR content → BDD test → Contract module → Workflow → Domain section → NFR/Runbook → Keyword fallback
+3. Define dependency graph and verify DAG property
+4. Generate FASE files using canonical template
+5. Generate README.md with coverage matrices and dependency graph
+6. Verify every spec is referenced in at least one FASE
+
+## Clarification taxonomy
+
+The clarify phase scans against 10 categories with priority ordering:
+
+| ID | Category | Detects | Priority |
+|----|----------|---------|----------|
+| CL-TECH | Technology Stack | Missing language/framework/runtime choices | 1 |
+| CL-DATA | Physical Data Model | Logical-to-physical mapping gaps | 2 |
+| CL-ARCH | Architecture Topology | Undefined deployment/scaling strategy | 3 |
+| CL-SEC | Security Implementation | Security specs without library/pattern | 4 |
+| CL-INTEG | Integration Patterns | Undefined external system protocols | 5 |
+| CL-PERF | Performance Strategy | NFR targets without implementation strategy | 6 |
+| CL-TEST | Test Implementation | Missing test framework/environment | 7 |
+| CL-CICD | Build & Deploy Pipeline | Missing CI/CD definition | 8 |
+| CL-OBS | Observability & Ops | Missing monitoring/logging strategy | 9 |
+| CL-COST | Cost & Resources | Missing infrastructure cost estimation | 10 |
+
+For each category, the skill checks ADRs, CLARIFICATIONS.md, CLAUDE.md, and FASE-0 for existing decisions. If found, it marks the category as resolved and skips the question.
+
+## What this stage produces
+
+The plan architect generates:
+
+- **FASE files** at `plan/fases/FASE-{N}-{slug}.md` with:
+  - Title, dependencies, observable value, success criteria
+  - Specs to read organized by type (UCs, workflows, ADRs, domain, contracts, tests, NFR, runbooks)
+  - Applicable invariants, resulting contracts, verification commands, scope table
+
+- **FASE README** at `plan/fases/README.md` with coverage matrices and dependency graph
+
+- **Clarification log** at `plan/CLARIFY-LOG.md` with decisions from interactive Q&A sessions
+
+- **Research findings** at `plan/RESEARCH.md` (if needed) with alternatives evaluated, selected decision, rationale, and trade-offs
+
+- **Architecture document** at `plan/ARCHITECTURE.md` with:
+  - C4 diagrams (System Context, Container, Component)
+  - Deployment view
+  - Physical data model with indexes and migrations
+  - Integration map
+  - Security architecture
+
+- **Master plan** at `plan/PLAN.md` with:
+  - Technical context consolidating all technology decisions
+  - Component decomposition mapping bounded contexts to modules
+  - Cross-FASE concerns (auth flow, multi-tenant isolation, error handling, observability)
+  - Risk assessment with mitigation strategies
+  - Developer quickstart with prerequisites and setup
+  - Validation and traceability matrices
+
+- **Per-FASE plans** at `plan/fase-plans/PLAN-FASE-{N}.md` with:
+  - FASE-specific technical decisions
+  - Component implementation details with interface sketches
+  - API implementation notes
+  - Data changes (new tables, migrations)
+  - Test strategy with coverage map (source file → test file)
+  - Dependencies on shared components
+  - Acceptance criteria
+
+## Real example
+
+FASE file excerpt:
+
+```markdown
+# FASE-0: Bootstrap técnico
+
+**Estado:** planned
+**Dependencias:** ninguna
+**Valor Observable:** Sistema desplegable en Cloudflare Workers con autenticación funcional
+
+## Objetivo
+
+Establecer la infraestructura técnica base: runtime, base de datos, autenticación, autorización, multi-tenant isolation, audit log, rate limiting, y health endpoints.
+
+## Criterios de Éxito
+
+- [ ] `wrangler dev` inicia sin errores
+- [ ] Health endpoint responde 200 con timestamp
+- [ ] JWT authentication middleware funcional
+- [ ] Rate limiting middleware enforced (100 req/min burst)
+- [ ] Tenant isolation verificado (INV-SYS-001)
+- [ ] Audit log capturing eventos de autenticación
+
+## Specs a Leer
+
+### Use Cases
+- `use-cases/UC-001-authenticate.md` — Autenticación JWT
+- `use-cases/UC-002-authorize.md` — Autorización por rol
+
+### Architecture Decision Records
+- `adr/ADR-001-tech-stack.md` — TypeScript + Hono + Cloudflare Workers
+- `adr/ADR-002-encryption.md` — Encryption at rest (AES-256-GCM)
+- `adr/ADR-025-rate-limiting.md` — Token bucket con Cloudflare KV
+
+### Domain
+- `domain/02-ENTITIES.md` — Sección 1: User, Organization, ApiKey
+- `domain/05-INVARIANTS.md` — INV-SYS-001, INV-SYS-003, INV-SEC-001
+
+### Contracts
+- `contracts/API-system.md` — Health, auth, rate limit endpoints
+
+### NFR
+- `nfr/PERFORMANCE.md` — p99 < 200ms targets
+- `nfr/LIMITS.md` — Rate limits and quotas
+- `nfr/SECURITY.md` — Authentication, authorization, encryption
+
+## Invariantes Aplicables
+
+- **INV-SYS-001**: Multi-tenant isolation (organization_id in all queries)
+- **INV-SYS-003**: Authentication required (except health endpoint)
+- **INV-SEC-001**: PII encryption at rest
+
+Cumulative: Estos invariantes aplican a TODAS las fases posteriores.
+
+## Contratos Resultantes
+
+### Endpoints
+- GET /health → 200 {status, timestamp}
+- POST /api/v1/auth/login → 200 {token, user}
+- POST /api/v1/auth/refresh → 200 {token}
+
+### Domain Events
+- UserAuthenticated {user_id, organization_id, timestamp}
+- AuthenticationFailed {email, reason, timestamp}
+
+## Verificación
+
+```bash
+curl http://localhost:8787/health
+# Expected: {"status":"ok","timestamp":"2024-01-15T10:00:00Z"}
+
+curl -X POST http://localhost:8787/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@acme.com","password":"SecurePass123!"}'
+# Expected: {"token":"eyJ...","user":{...}}
+```
+
+## Alcance
+
+| Incluye | Excluye |
+|---------|----------|
+| Estructura del proyecto Worker | Migración de datos legacy |
+| Middleware de autenticación JWT | OAuth/SAML providers externos |
+| Rate limiting básico (100 req/min burst) | Rate limiting avanzado con múltiples ventanas |
+| Health endpoint con timestamp | Métricas de rendimiento detalladas |
+| Audit log de eventos de autenticación | Audit log completo de todas las operaciones |
+```
+
+## Pipeline integration
+
+This skill is **Step 4** of the SDD pipeline:
+
+```
+spec-auditor → audits/AUDIT-BASELINE.md
+        ↓
+plan-architect → plan/ (THIS SKILL)
+        ↓
+task-generator → task/
+```
+
+**Input**: `spec/` (audit-clean), optionally `test/TEST-PLAN.md`
+
+**Output**: `plan/fases/FASE-*.md`, `plan/PLAN.md`, `plan/CLARIFY-LOG.md`, `plan/RESEARCH.md`, `plan/ARCHITECTURE.md`, `plan/fase-plans/PLAN-FASE-*.md`
+
+**Next step**: Run task-generator to decompose plans into atomic implementation tasks

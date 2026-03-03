@@ -1,0 +1,172 @@
+---
+title: Hooks
+description: Automated hooks that run during Claude Code sessions to maintain pipeline integrity and inject context
+---
+
+# Hooks
+
+The SDD Plugin includes 4 automated hooks that run during your Claude Code sessions. These hooks enforce guardrails, inject context, and maintain pipeline state without manual intervention.
+
+<Info>
+All hooks are configured in `hooks/hooks.json` and run automatically — no setup required.
+</Info>
+
+## H1: Session start pipeline injection
+
+**Trigger:** At the start of every Claude Code session  
+**Type:** PreToolUse (SessionStart)  
+**Timeout:** 10 seconds  
+**Script:** `scripts/sdd-session-start.sh`
+
+### Purpose
+
+Injects current pipeline status into the session context so Claude always knows:
+- Which stage you're at
+- How many stages are complete (e.g., "3/7 done")
+- Which stages are stale, running, or have errors
+- What the next recommended action is
+
+### Example output
+
+```
+SDD Pipeline [test-planner]: 3/7 done. Next: test-planner
+```
+
+```
+SDD Pipeline [task-implementer]: 5/7 done. STALE: spec-auditor. Next: spec-auditor
+```
+
+<Tip>
+If no `pipeline-state.json` exists, the hook reports a fresh pipeline and recommends running `/sdd:setup`.
+</Tip>
+
+## H2: Upstream artifact immutability guard
+
+**Trigger:** Before any Edit or Write operation  
+**Type:** PreToolUse (Edit, Write)  
+**Timeout:** 5 seconds  
+**Script:** `scripts/sdd-upstream-guard.sh`
+
+### Purpose
+
+Enforces **Article 4 of the SDD Constitution**: downstream skills cannot modify upstream artifacts. This maintains traceability integrity by preventing, for example, `task-implementer` from editing requirements or specs.
+
+### Immutability rules
+
+When a stage is running, these paths are **prohibited**:
+
+| Running stage | Prohibited paths |
+|--------------|------------------|
+| test-planner | requirements/, spec/, audits/ |
+| plan-architect | requirements/, spec/, audits/, test/ |
+| task-generator | requirements/, spec/, audits/, test/, plan/ |
+| task-implementer | requirements/, spec/, audits/, test/, plan/, task/ |
+| spec-auditor | requirements/ (spec/ is allowed in Fix mode) |
+| specifications-engineer | requirements/ |
+
+### Exceptions
+
+- `req-change` skill: Can modify requirements/ and spec/ (lateral skill)
+- `pipeline-state.json`: Always allowed (infrastructure, not artifact)
+- No running stage: Permissive mode (allow all)
+- `.claude/`, `changes/`, `feedback/`: Always allowed
+
+<Warning>
+If a prohibited write is attempted, the hook returns a **denial** with a message explaining the Art. 4 violation.
+</Warning>
+
+## H3: Pipeline state auto-updater
+
+**Trigger:** After any successful Write operation  
+**Type:** PostToolUse (Write)  
+**Timeout:** 10 seconds  
+**Async:** true  
+**Script:** `scripts/sdd-pipeline-state-updater.sh`
+
+### Purpose
+
+Automatically updates `pipeline-state.json` when artifacts are written to pipeline directories. This keeps the pipeline state synchronized without manual intervention.
+
+### Detection logic
+
+When a file is written, the hook maps the path to a pipeline stage:
+
+| Path | Maps to stage |
+|------|---------------|
+| requirements/* | requirements-engineer |
+| spec/* | specifications-engineer |
+| audits/* | spec-auditor |
+| test/* | test-planner |
+| plan/* | plan-architect |
+| task/* | task-generator |
+| src/*, tests/* | task-implementer |
+| feedback/* | task-implementer |
+
+### State transitions
+
+The hook only transitions stages from `pending` or `stale` to `running`. It does **not** mark stages as `done` — that's the skill's responsibility.
+
+<Note>
+If `pipeline-state.json` doesn't exist, the hook initializes it with all stages set to `pending`.
+</Note>
+
+## H4: Consistency check (placeholder)
+
+**Trigger:** At session end  
+**Type:** Stop  
+**Timeout:** 5 seconds  
+**Command:** `echo {}`
+
+### Purpose
+
+This hook is reserved for future use. Currently, it's a no-op placeholder that can be extended to run consistency checks when a session ends.
+
+### Potential future uses
+
+- Verify that all running stages were properly marked as done
+- Generate a session summary of changes made
+- Check for uncommitted changes in pipeline artifacts
+
+---
+
+## Hook configuration
+
+All hooks are defined in `hooks/hooks.json`. The configuration uses matchers to determine when hooks fire:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "SessionStart",
+        "hooks": [{ "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/sdd-session-start.sh", "timeout": 10000 }]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/sdd-upstream-guard.sh", "timeout": 5000 }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [{ "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/sdd-pipeline-state-updater.sh", "timeout": 10000, "async": true }]
+      }
+    ]
+  }
+}
+```
+
+<Tip>
+Hooks are stateless and idempotent — they can be run multiple times safely without side effects.
+</Tip>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="robot" href="/automation/agents">
+    Learn about the 8 specialized agents
+  </Card>
+  <Card title="Guardrails" icon="shield-halved" href="/automation/guardrails">
+    Overview of automated guardrails
+  </Card>
+</CardGroup>

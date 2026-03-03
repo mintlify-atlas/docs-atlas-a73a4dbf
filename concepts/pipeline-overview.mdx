@@ -1,0 +1,242 @@
+---
+title: Pipeline overview
+description: Understanding the 7-stage SDD pipeline from requirements to production code
+---
+
+The SDD plugin transforms requirements into production code through a structured, auditable 7-stage pipeline. Each stage produces artifacts that feed the next, ensuring full traceability from requirements to deployment.
+
+## The 7 stages
+
+The pipeline guides you through these sequential steps:
+
+```
+Requirements → Specifications → Audit → Test Plan → Architecture → Tasks → Code
+```
+
+Every artifact is traceable end-to-end through the extended chain:
+
+```
+REQ → UC → WF → API → BDD → INV → ADR → TASK → COMMIT → CODE → TEST
+```
+
+### Stage 1: Requirements engineering
+
+**Skill:** `/sdd:requirements-engineer`
+
+Elicit requirements interactively using EARS syntax (Easy Approach to Requirements Syntax).
+
+**What it does:**
+- Gathers requirements from stakeholders through structured elicitation
+- Writes requirements using EARS patterns (ubiquitous, event-driven, state-driven, unwanted, optional)
+- Applies the "Perfect Technology Filter" to separate functional from nonfunctional requirements
+- Audits requirements for quality: unambiguous, testable, atomic, necessary, complete
+- Produces acceptance criteria in BDD format for every requirement
+
+**Output:** `requirements/REQUIREMENTS.md` with structured requirements including IDs (REQ-F-NNN, REQ-NF-NNN), EARS statements, acceptance criteria, priority, and traceability
+
+**Example EARS pattern:**
+
+```
+WHEN a user submits login credentials THE system SHALL validate them within 2 seconds
+```
+
+### Stage 2: Specifications engineering
+
+**Skill:** `/sdd:specifications-engineer`
+
+Transform requirements into formal technical specifications following IEEE SWEBOK v4.
+
+**What it does:**
+- Analyzes requirements for specification readiness (gap analysis)
+- Asks clarifying questions for every ambiguity or gap found
+- Creates comprehensive spec folder structure: domain model, use cases, workflows, contracts, NFRs, ADRs
+- Generates domain model: entities, value objects, states, invariants, glossary
+- Creates use case specifications with normal/exception flows
+- Defines API contracts and event schemas
+- Documents architecture decisions as ADRs
+
+**Output:** Complete `spec/` directory with:
+- `domain/` — Glossary, entities, value objects, state machines, invariants
+- `use-cases/` — UC-NNN files with structured use cases
+- `workflows/` — WF-NNN files for multi-step processes
+- `contracts/` — API contracts, event schemas, permissions matrix
+- `adr/` — Architecture Decision Records
+- `tests/` — BDD scenarios per use case
+- `nfr/` — Performance, security, limits specifications
+
+**Key principle:** Clarification-first — never assumes, always asks with structured options.
+
+### Stage 3: Specification audit
+
+**Skill:** `/sdd:spec-auditor`
+
+Audit specifications for defects using systematic cross-document analysis, then fix issues found.
+
+**What it does:**
+- Detects 9 categories of defects:
+  - Ambiguities (vague terms, unquantified metrics)
+  - Implicit rules (undocumented behavior)
+  - Dangerous silences (missing error handling, edge cases)
+  - Semantic ambiguities (inconsistent terminology)
+  - Contradictions between documents
+  - Incomplete specifications (TODOs, empty sections)
+  - Weak or missing invariants
+  - Evolution risks (hardcoded values, tight coupling)
+  - Decisions without ADRs
+- Runs 3C verification: Completeness, Correctness, Coherence
+- Applies SWEBOK v4 quality metrics (defect density, traceability coverage, orphan rate)
+- **Mode Fix:** Systematically corrects defects after audit questions are answered
+
+**Output:** `audits/AUDIT-BASELINE.md` with findings, severity classification, and resolution questions. After fixes: updated specs + `audits/CORRECTIONS-PLAN-*.md`
+
+**Quality gate:** Downstream skills (plan-architect, task-generator) should not proceed if audit fails.
+
+### Stage 4: Test planning
+
+**Skill:** `/sdd:test-planner`
+
+Generate comprehensive test strategy, test matrices, and performance scenarios from specifications.
+
+**What it does:**
+- Classifies test types needed: unit tests (invariants), integration tests (UC flows), E2E tests (workflows), performance tests (NFRs), security tests
+- Defines coverage targets per FASE (implementation phase)
+- Generates test matrices using:
+  - Equivalence partitioning
+  - Boundary value analysis
+  - Decision tables
+  - State transition testing
+- Creates performance test scenarios (smoke, load, stress, soak, spike)
+- Identifies test gaps (UCs without BDD, invariants without property tests)
+
+**Output:**
+- `test/TEST-PLAN.md` — Master test strategy with coverage targets
+- `test/TEST-MATRIX-UC-*.md` — Input/output matrices per complex use case
+- `test/PERF-SCENARIOS.md` — Performance test scenarios from NFR targets
+
+**Alignment:** SWEBOK v4 Ch04 — Software Testing (levels, types, techniques, measurement)
+
+### Stage 5: Plan architecture
+
+**Skill:** `/sdd:plan-architect`
+
+Generate FASE files (implementation phases) and actionable implementation plans.
+
+**What it does:**
+- **Phase 1B: FASE generation** — Maps specs to incremental implementation phases with dependency DAG
+- **Phase 2: Clarification** — Interactive Q&A to resolve implementation gaps (10 categories: tech stack, data model, architecture topology, security, integration, performance, test frameworks, CI/CD, observability, cost)
+- **Phase 3: Research** — Technical research for unresolved items (multi-agent: TECH-agent + PATTERN-agent)
+- **Phase 4: Architecture design** — C4 views (system context, container, component), deployment view, physical data model, integration map, security architecture
+- **Phase 5: Plan generation** — Master PLAN.md + per-FASE implementation plans with component details, API notes, data changes, test strategy, coverage map
+
+**Output:**
+- `plan/fases/FASE-*.md` — Navigation indices for each implementation phase
+- `plan/PLAN.md` — Master implementation plan
+- `plan/ARCHITECTURE.md` — Architecture views (C4 + deployment + data)
+- `plan/CLARIFY-LOG.md` — Session log of clarification decisions
+- `plan/RESEARCH.md` — Technology research findings (if needed)
+- `plan/fase-plans/PLAN-FASE-*.md` — Per-FASE implementation details
+
+**Key principle:** Specs as single source of truth — plan artifacts are derived, never inventive.
+
+### Stage 6: Task generation
+
+**Skill:** `/sdd:task-generator`
+
+Decompose implementation plans into atomic, reversible, human-reviewable tasks.
+
+**What it does:**
+- Generates atomic tasks (1 task = 1 commit)
+- Pre-defines conventional commit messages per task
+- Documents revert strategies (SAFE, COUPLED, MIGRATION, CONFIG)
+- Creates review checklists for human reviewers
+- Establishes dependency graphs with parallel execution markers `[P]`
+- Defines checkpoints per phase (Setup, Foundation, Domain, Contracts, Integration, Tests, Verification)
+
+**Output:**
+- `task/TASK-FASE-*.md` — Tasks for each FASE organized by internal phases
+- `task/TASK-INDEX.md` — Global index of all tasks
+- `task/TASK-ORDER.md` — Dependency graph and implementation sequence
+
+**Task ID format:** `TASK-F{N}-{SEQ}` (e.g., TASK-F0-001, TASK-F3-015)
+
+**Validation:** 14 checks including completeness (all plan sections have tasks), correctness (all contracts have implementation), DAG validity, test coverage map adherence.
+
+### Stage 7: Task implementation
+
+**Skill:** `/sdd:task-implementer`
+
+Implement code from task documents using test-first development.
+
+**What it does:**
+- Implements tasks one at a time in dependency order
+- Follows TDD: write failing tests → implement → verify tests pass
+- Creates atomic commits with exact messages from task definitions
+- Marks completed tasks as `[x]` in task documents
+- **SHA capture:** Records commit SHA per task for full traceability
+- Enforces spec traceability — every code artifact traces to UC, ADR, INV, REQ
+- Pauses on ambiguity, `[DECISION PENDIENTE]`, or spec conflicts
+- Verifies coverage per-file using Coverage Map from plan
+
+**Output:**
+- `src/` — Implementation code
+- `tests/` — Unit, integration, and BDD tests
+- `task/TASK-FASE-*.md` — Updated with `[x]` checkboxes
+- `feedback/IMPL-FEEDBACK-FASE-*.md` — Spec-level issues found during implementation
+- Git commits with `Refs:` and `Task:` trailers
+
+**Commit format example:**
+
+```
+feat(auth): add JWT authentication middleware
+
+Refs: FASE-0, UC-002, ADR-003, INV-SYS-001, INV-SYS-003
+Task: TASK-F0-003
+```
+
+**Verification:** 3-dimensional protocol (Completeness, Correctness, Coherence) runs at task completion.
+
+## Pipeline integration
+
+The pipeline is designed for incremental, reversible execution:
+
+1. **Each stage is a readiness gate** for the next
+2. **Artifacts are versionable** (all markdown, all in git)
+3. **Checkpoints enable rollback** at any phase
+4. **Hooks run automatically** every session:
+   - H1: Injects pipeline status at session start
+   - H2: Blocks downstream skills from editing upstream artifacts
+   - H3: Auto-updates pipeline state when artifacts change
+   - H4: Consistency check at session end
+
+## Monitoring the pipeline
+
+You can track pipeline progress using these utility skills:
+
+- `/sdd:pipeline-status` — Current state, staleness detection, next action
+- `/sdd:dashboard` — Interactive HTML traceability dashboard with 5 views
+- `/sdd:traceability-check` — Verify full artifact chain, find orphans and broken links
+
+## Key conventions
+
+| Convention | Description |
+|-----------|-------------|
+| **EARS syntax** | `WHEN <trigger> THE <system> SHALL <behavior>` |
+| **1 task = 1 commit** | Each task produces one commit with `Refs:` and `Task:` trailers |
+| **Clarification-first** | Skills never assume — they ask with structured options |
+| **Full traceability** | REQ → UC → WF → API → BDD → INV → ADR → TASK → COMMIT → CODE → TEST |
+| **Specs as truth** | Specifications are the single source of truth — downstream artifacts are derived |
+
+## Standards compliance
+
+The pipeline follows these industry standards:
+
+- **SWEBOK v4** — Software Engineering Body of Knowledge
+- **IEEE 830** — Software Requirements Specification
+- **ISO 14764** — Software Change Management
+- **OWASP ASVS v4** — Application Security Verification Standard
+- **C4 Model** — Context, Container, Component, Code architecture views
+- **Gherkin/BDD** — Behavior-Driven Development format
+
+<Note>
+The pipeline is designed for both **greenfield** (new projects) and **brownfield** (existing projects) adoption. See the onboarding skills for migrating existing codebases.
+</Note>

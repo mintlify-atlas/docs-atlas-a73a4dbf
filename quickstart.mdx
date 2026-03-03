@@ -1,80 +1,376 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start
+description: Run through a complete SDD pipeline in minutes
 ---
 
-## Get started in three steps
+# Quick start
 
-Get your documentation site running locally and make your first customization.
+Get started with the SDD plugin by running a complete pipeline from requirements to code.
 
-### Step 1: Set up your local environment
+## Before you begin
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+Make sure you've [installed the plugin](/installation) and run `/sdd:setup` in your project directory.
+
+<Note>
+The SDD plugin supports both greenfield (new) and brownfield (existing) projects. Choose the path that matches your situation.
+</Note>
+
+## New project (greenfield)
+
+Start from zero and build a complete system with full traceability.
+
+<Steps>
+  <Step title="Initialize the pipeline">
+    Set up pipeline tracking:
+    ```bash
+    /sdd:setup
+    ```
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    This creates `pipeline-state.json` and verifies all components are ready.
+  </Step>
+  
+  <Step title="Gather requirements">
+    Begin interactive requirements elicitation:
+    ```bash
+    /sdd:requirements-engineer
+    ```
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    The skill will guide you through:
+    - Stakeholder identification
+    - Elicitation techniques (interviews, prototypes, observation)
+    - Requirements writing in EARS syntax
+    - Quality validation
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    **Output:** `requirements/REQUIREMENTS.md`
+    
+    Example requirement format:
+    ```markdown
+    ### REQ-F-001: User authentication
+    - **Statement:** WHEN a user submits login credentials THE system SHALL validate them within 2 seconds
+    - **Category:** Functional
+    - **Priority:** Must have
+    - **Acceptance criteria:**
+      - GIVEN valid credentials WHEN user logs in THEN system grants access
+      - GIVEN invalid credentials WHEN user logs in THEN system shows error message
+    ```
+  </Step>
+  
+  <Step title="Generate specifications">
+    Transform requirements into formal technical specs:
+    ```bash
+    /sdd:specifications-engineer
+    ```
+    
+    This generates:
+    - Domain model with entities and relationships
+    - Use cases (UC) with structured workflows
+    - API contracts with input/output schemas
+    - Behavior-driven development scenarios (BDD)
+    - System invariants (INV)
+    - Architecture decision records (ADR)
+    - Non-functional requirements (NFR)
+    
+    **Output:** `spec/` directory with multiple files
+  </Step>
+  
+  <Step title="Audit specifications">
+    Automated quality review of all specs:
+    ```bash
+    /sdd:spec-auditor
+    ```
+    
+    Detects defects like:
+    - Ambiguous language
+    - Missing preconditions
+    - Untestable assertions
+    - Inconsistent workflows
+    - Security gaps
+    
+    The skill then **fixes** detected issues automatically.
+    
+    **Output:** `audits/AUDIT-BASELINE.md`
+  </Step>
+  
+  <Step title="Plan testing">
+    Generate comprehensive test strategy:
+    ```bash
+    /sdd:test-planner
+    ```
+    
+    Creates:
+    - Test plan with scope and approach
+    - Traceability matrix (REQ → UC → BDD → Test)
+    - Performance scenarios with load profiles
+    - Edge case coverage analysis
+    
+    **Output:** `test/` directory
+  </Step>
+  
+  <Step title="Design architecture">
+    Create architecture with C4 diagrams:
+    ```bash
+    /sdd:plan-architect
+    ```
+    
+    Generates:
+    - C4 Context, Container, and Component diagrams
+    - FASE files (Functional Architecture Specification Episodes)
+    - Implementation plan with phases
+    - Technology stack decisions
+    
+    **Output:** `plan/` directory
+  </Step>
+  
+  <Step title="Generate tasks">
+    Decompose architecture into atomic tasks:
+    ```bash
+    /sdd:task-generator
+    ```
+    
+    Each task:
+    - Maps to exactly one commit
+    - References source artifacts (FASE, UC, ADR)
+    - Includes acceptance criteria
+    - Specifies files to modify
+    
+    **Output:** `task/` directory with `TASK-F0-001.md`, `TASK-F0-002.md`, etc.
+  </Step>
+  
+  <Step title="Implement code">
+    Write code and tests with TDD:
+    ```bash
+    /sdd:task-implementer
+    ```
+    
+    For each task:
+    1. Writes tests first (BDD scenarios)
+    2. Implements code to pass tests
+    3. Commits with `Refs:` and `Task:` trailers for traceability
+    
+    **Output:** 
+    - `src/` with source code
+    - `tests/` with test files
+    - Git commits with full traceability
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Tip>
+After completing the pipeline, generate a visual dashboard to see all connections:
+```bash
+/sdd:dashboard
+```
+</Tip>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+## Existing project (brownfield)
 
-### Step 3: Go live
+Adopt SDD in a project that already has code.
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+<Steps>
+  <Step title="Diagnose your project">
+    Get an adoption plan tailored to your codebase:
+    ```bash
+    /sdd:onboarding
+    ```
+    
+    The skill analyzes your project and classifies it into one of 8 scenarios:
+    - Code-only (no docs)
+    - Code + informal docs
+    - Code + formal specs but stale
+    - And 5 more scenarios
+    
+    **Output:** `onboarding/ONBOARDING-REPORT.md` with:
+    - Health score (0-100)
+    - Detection signals (what was found)
+    - Recommended action plan
+    - Estimated effort per step
+  </Step>
+  
+  <Step title="Import existing docs (optional)">
+    Convert external documentation to SDD format:
+    ```bash
+    /sdd:import docs/api.yaml
+    ```
+    
+    Supported formats:
+    - OpenAPI / Swagger (YAML, JSON)
+    - Jira exports (CSV, JSON)
+    - Markdown documents
+    - Notion pages
+    - Excel/CSV spreadsheets
+    
+    **Output:** `requirements/REQUIREMENTS.md` and `spec/` files
+  </Step>
+  
+  <Step title="Reverse engineer from code">
+    Extract specs from existing codebase:
+    ```bash
+    /sdd:reverse-engineer
+    ```
+    
+    Analyzes code to generate:
+    - Requirements (inferred from behavior)
+    - Use cases (from API endpoints and functions)
+    - Domain model (from classes and types)
+    - Invariants (from validation logic)
+    - Architecture decisions (from patterns used)
+    
+    Also produces a findings report with:
+    - Dead code
+    - Technical debt
+    - Workarounds and infrastructure issues
+    
+    **Output:** 
+    - `requirements/REQUIREMENTS.md`
+    - `spec/` directory
+    - `findings/FINDINGS-REPORT.md`
+  </Step>
+  
+  <Step title="Reconcile specs with code">
+    Detect and fix drift between specs and implementation:
+    ```bash
+    /sdd:reconcile
+    ```
+    
+    Finds divergences classified as:
+    - New functionality (in code, not in specs)
+    - Removed features (in specs, not in code)
+    - Behavioral changes
+    - Refactorings
+    - Bugs or defects
+    
+    Then helps you align specs with reality.
+    
+    **Output:** `reconciliation/RECONCILIATION-REPORT.md` with alignment percentage
+  </Step>
+</Steps>
+
+## Monitor and maintain
+
+Once the pipeline is running, use these utilities:
+
+### Check pipeline status
+
+See where you are and what's next:
+```bash
+/sdd:pipeline-status
+```
+
+Shows:
+- Current stage
+- Completed stages
+- Pending stages
+- Staleness warnings (if upstream artifacts changed)
+
+### View traceability
+
+Generate an interactive HTML dashboard:
+```bash
+/sdd:dashboard
+```
+
+Opens in your browser with 5 views:
+1. **Pipeline** — Progress through 7 stages
+2. **Requirements** — All REQs with coverage indicators
+3. **Graph** — Interactive network visualization
+4. **Coverage** — Gap analysis by domain/layer
+5. **Search** — Find any artifact by ID or text
+
+<Info>
+The dashboard includes code and commit traceability if you have `src/` and `.git/` in your project.
+</Info>
+
+### Verify traceability chain
+
+Check for broken links and orphans:
+```bash
+/sdd:traceability-check
+```
+
+Reports:
+- Orphaned artifacts (nothing references them)
+- Broken references (reference non-existent IDs)
+- Coverage gaps (REQs without UCs, UCs without TASKs, etc.)
+
+### Change a requirement
+
+Update requirements with cascading changes:
+```bash
+/sdd:req-change --cascade=auto
+```
+
+When you modify a requirement, this skill:
+1. Identifies all downstream artifacts affected
+2. Updates specs, tests, tasks, and code
+3. Maintains full traceability
+4. Creates an audit trail
+
+<Warning>
+This is a powerful operation. Use `--cascade=manual` to review changes before applying them.
+</Warning>
+
+## Real-world example
+
+Here's what a complete trace looks like:
+
+```
+REQ-F-001 (Validate PDF size limit)
+  ↓ implements
+UC-001 (Upload PDF document)
+  ↓ orchestrates
+WF-001-STEP-2 (Validate file)
+  ↓ enforces
+INV-EXT-005 (PDF size ≤ 50MB)
+  ↓ tests
+BDD-UC-001-02 (Rejects oversized PDF)
+  ↓ informs
+TASK-F1-003 (Implement PDF validator)
+  ↓ implemented-by
+commit abc1234 (feat: add PDF size validation)
+  ↓ contains
+src/extraction/validators/pdf-validator.ts:validateSize
+  ↓ tested-by
+tests/unit/extraction/pdf-validator.test.ts:validateSize
+```
+
+You can explore this chain visually in the dashboard or query it with MCP tools:
+
+```bash
+# In Claude Code, if MCP server is running:
+Use the sdd_trace tool to show the full chain for REQ-F-001
+```
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card 
+    title="Pipeline skills" 
+    icon="list-check"
+    href="/api/skills/pipeline-skills"
+  >
+    Deep dive into each of the 7 pipeline steps
+  </Card>
+  
+  <Card 
+    title="Utility skills" 
+    icon="arrows-left-right"
+    href="/api/skills/utility-skills"
+  >
+    Learn about security auditor and requirements change management
+  </Card>
+  
+  <Card 
+    title="Traceability" 
+    icon="diagram-project"
+    href="/concepts/traceability"
+  >
+    Understand how artifacts connect from requirements to code
+  </Card>
+  
+  <Card 
+    title="MCP tools" 
+    icon="plug"
+    href="/mcp/overview"
+  >
+    Use the traceability API for queries and impact analysis
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

@@ -1,0 +1,737 @@
+---
+title: Pipeline skills reference
+description: Core sequential skills that transform requirements into running code
+---
+
+# Pipeline skills reference
+
+Pipeline skills execute sequentially to transform requirements into running code. Each skill produces artifacts consumed by the next stage.
+
+## Pipeline flow
+
+```
+requirements-engineer → specifications-engineer → spec-auditor →
+plan-architect → task-generator → task-implementer → test-planner
+```
+
+---
+
+## requirements-engineer
+
+Professional requirements engineering based on SWEBOK v4 Chapter 1.
+
+### Invocation
+
+```bash
+/sdd:requirements-engineer                    # Elicit mode (interactive)
+/sdd:requirements-engineer --audit            # Audit mode (review existing)
+/sdd:requirements-engineer --format           # Format mode (convert format)
+```
+
+### Modes
+
+<ParamField path="mode" type="enum" default="elicit">
+  Operation mode
+  
+  **Options:**
+  - `elicit` — Interactive requirements gathering
+  - `audit` — Quality assessment of existing requirements
+  - `format` — Convert between requirement formats
+</ParamField>
+
+### Input
+
+<ParamField path="input" type="string">
+  Path to existing requirements document (audit/format modes only)
+</ParamField>
+
+### Output artifacts
+
+- `requirements/REQUIREMENTS.md` — Structured requirements in EARS format
+- Sections: Functional, Nonfunctional, Constraints, Traceability
+
+### EARS syntax
+
+All requirements use Easy Approach to Requirements Syntax:
+
+<ParamField path="Ubiquitous" type="pattern">
+  `THE <system> SHALL <behavior>`
+  
+  **Example:** THE system SHALL store all data encrypted at rest
+</ParamField>
+
+<ParamField path="Event-driven" type="pattern">
+  `WHEN <trigger> THE <system> SHALL <behavior>`
+  
+  **Example:** WHEN a user submits login credentials THE system SHALL validate them within 2 seconds
+</ParamField>
+
+<ParamField path="State-driven" type="pattern">
+  `WHILE <state> THE <system> SHALL <behavior>`
+  
+  **Example:** WHILE the system is in maintenance mode THE system SHALL reject all write operations
+</ParamField>
+
+<ParamField path="Unwanted" type="pattern">
+  `IF <condition> THEN THE <system> SHALL <behavior>`
+  
+  **Example:** IF the database connection fails THEN THE system SHALL retry 3 times with exponential backoff
+</ParamField>
+
+### Quality gates
+
+Each requirement is validated against:
+- **Unambiguous** — Single interpretation only
+- **Testable** — Concrete acceptance criteria
+- **Atomic** — Single decision per requirement
+- **Binding** — Stakeholder-confirmed necessity
+- **True** — Represents actual need, not solution
+
+---
+
+## specifications-engineer
+
+Transforms requirements into formal technical specifications.
+
+### Invocation
+
+```bash
+/sdd:specifications-engineer                          # Full generation
+/sdd:specifications-engineer --analyze                # Readiness analysis
+/sdd:specifications-engineer --brownfield             # From existing code
+```
+
+### Modes
+
+<ParamField path="mode" type="enum" default="create">
+  Operation mode
+  
+  **Options:**
+  - `analyze` — Analyze requirements for specification readiness
+  - `create` — Generate specifications from requirements
+  - `validate` — Validate existing specifications
+  - `brownfield` — Incremental specification for existing code
+</ParamField>
+
+### Input
+
+<ParamField path="--requirements" type="string" default="requirements/REQUIREMENTS.md">
+  Path to requirements document
+</ParamField>
+
+### Output artifacts
+
+Generates complete `spec/` directory:
+
+<ParamField path="spec/domain/" type="directory">
+  Domain model and business rules
+  
+  **Files:**
+  - `01-GLOSSARY.md` — Ubiquitous language
+  - `02-ENTITIES.md` — Domain entities
+  - `03-VALUE-OBJECTS.md` — Value objects and enums
+  - `04-STATES.md` — State machines
+  - `05-INVARIANTS.md` — Business invariants (INV-XXX-NNN)
+</ParamField>
+
+<ParamField path="spec/use-cases/" type="directory">
+  Use case specifications
+  
+  **Format:** `UC-NNN-{slug}.md` per use case
+  
+  **Sections:** Actor, Preconditions, Main Flow, Alternative Flows, Exception Flows, Postconditions
+</ParamField>
+
+<ParamField path="spec/workflows/" type="directory">
+  Multi-step process flows
+  
+  **Format:** `WF-NNN-{slug}.md` per workflow
+</ParamField>
+
+<ParamField path="spec/contracts/" type="directory">
+  API and event contracts
+  
+  **Files:**
+  - `API-{module}.md` — REST/GraphQL contracts per module
+  - `EVENTS-{module}.md` — Domain events
+  - `PERMISSIONS-MATRIX.md` — RBAC matrix
+</ParamField>
+
+<ParamField path="spec/tests/" type="directory">
+  Test specifications
+  
+  **Files:**
+  - `BDD-UC-NNN.md` — BDD scenarios per use case
+  - `PROPERTY-TESTS.md` — Property-based test specs
+</ParamField>
+
+<ParamField path="spec/nfr/" type="directory">
+  Non-functional requirements
+  
+  **Files:**
+  - `PERFORMANCE.md` — Performance targets (p99, throughput)
+  - `LIMITS.md` — Rate limits, quotas, thresholds
+  - `SECURITY.md` — Security requirements
+  - `OBSERVABILITY.md` — Logging, metrics, alerting
+</ParamField>
+
+<ParamField path="spec/adr/" type="directory">
+  Architecture Decision Records
+  
+  **Format:** `ADR-NNN-{slug}.md` per decision
+</ParamField>
+
+### Clarification markers
+
+When ambiguities cannot be resolved during generation:
+
+```markdown
+<!-- [NEEDS CLARIFICATION] NC-001: Max file size: 10MB or 25MB? -->
+```
+
+Tracked in `spec/CLARIFICATIONS-PENDING.md` until resolved.
+
+---
+
+## spec-auditor
+
+Systematic specification quality assurance and defect detection.
+
+### Invocation
+
+```bash
+/sdd:spec-auditor                                     # Full audit
+/sdd:spec-auditor --fix                               # Apply corrections
+/sdd:spec-auditor --focused --scope=CHANGE-REPORT.md  # Focused audit
+```
+
+### Modes
+
+<ParamField path="mode" type="enum" default="audit">
+  Operation mode
+  
+  **Options:**
+  - `audit` — Detect specification defects
+  - `fix` — Apply corrections from answered audit
+  - `focused` — Audit only changed documents
+</ParamField>
+
+### Defect categories
+
+<ParamField path="CAT-01" type="category">
+  **Ambiguities** — Terms admitting multiple interpretations
+  
+  **Signals:** "appropriate", "reasonable", "normally", missing quantifiers
+</ParamField>
+
+<ParamField path="CAT-02" type="category">
+  **Implicit rules** — Behavior given as understood but not documented
+  
+  **Signals:** Validations not specified, order assumed
+</ParamField>
+
+<ParamField path="CAT-03" type="category">
+  **Dangerous silences** — Cases not covered causing undefined behavior
+  
+  **Signals:** Flows without error handling, states without exit transitions
+</ParamField>
+
+<ParamField path="CAT-04" type="category">
+  **Semantic ambiguities** — Same term with different meanings
+  
+  **Signals:** Synonyms not controlled, glossary violations
+</ParamField>
+
+<ParamField path="CAT-05" type="category">
+  **Contradictions** — Specifications conflicting between documents
+  
+  **Signals:** Different values for same parameter, incompatible flows
+</ParamField>
+
+<ParamField path="CAT-06" type="category">
+  **Incomplete specifications** — Missing documents or placeholder sections
+  
+  **Signals:** TODOs, TBD sections, empty sections
+</ParamField>
+
+<ParamField path="CAT-07" type="category">
+  **Weak invariants** — Critical rules without formal invariant
+  
+  **Signals:** Restrictions in text without INV-ID, invariants without validation
+</ParamField>
+
+<ParamField path="CAT-08" type="category">
+  **Evolution risks** — Designs hindering future changes
+  
+  **Signals:** Hardcoded values, closed enums, missing versioning
+</ParamField>
+
+<ParamField path="CAT-09" type="category">
+  **Missing ADRs** — Architectural decisions without documentation
+  
+  **Signals:** Technologies mentioned without justification
+</ParamField>
+
+### 3C verification protocol
+
+Spec-level verification dimensions:
+
+<ParamField path="Completeness" type="dimension">
+  Spec coverage checks
+  
+  - Every REQ traces to at least one spec
+  - No orphan specs without REQ
+  - All spec subdirectories populated
+  - No placeholder sections remain
+  - Traceability chain intact
+</ParamField>
+
+<ParamField path="Correctness" type="dimension">
+  Spec-requirement alignment
+  
+  - Semantic match with REQ intent
+  - No contradictions between specs
+  - All INV codes valid
+  - State transitions consistent
+  - Permission alignment
+</ParamField>
+
+<ParamField path="Coherence" type="dimension">
+  Cross-spec consistency
+  
+  - Glossary adherence
+  - Terminology uniformity
+  - Valid cross-references
+  - Value consistency
+  - Format consistency
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="audits/AUDIT-BASELINE.md" type="file">
+  Baseline of accepted/deferred findings
+</ParamField>
+
+<ParamField path="audits/AUDIT-{version}.md" type="file">
+  Audit report with findings by category and severity
+</ParamField>
+
+<ParamField path="audits/CORRECTIONS-PLAN-{version}.md" type="file">
+  (Fix mode) Corrections plan with before/after
+</ParamField>
+
+---
+
+## plan-architect
+
+Generates FASE files and implementation plans from specifications.
+
+### Invocation
+
+```bash
+/sdd:plan-architect                                   # Full generation
+/sdd:plan-architect --fase 0                          # Single FASE
+/sdd:plan-architect --skip-clarify                    # Skip interactive clarification
+/sdd:plan-architect --regenerate-fases                # Force FASE regeneration
+/sdd:plan-architect --regenerate-fases --affected=1,5 # Cascade mode
+```
+
+### Modes
+
+<ParamField path="mode" type="enum" default="global">
+  Operation scope
+  
+  **Options:**
+  - `global` — Generate all plan artifacts
+  - `per-fase` — Generate plan for single FASE
+  - `skip-clarify` — Use existing clarifications
+  - `regenerate-fases` — Force FASE regeneration
+  - `audit-fases` — Read-only coverage check
+</ParamField>
+
+### FASE files
+
+FASE (implementation phase) files are navigation indices mapping specs to incremental phases.
+
+<ParamField path="plan/fases/FASE-N-{slug}.md" type="file">
+  Implementation phase index
+  
+  **Sections:**
+  - Objetivo — What the phase enables
+  - Criterios de Éxito — Acceptance checklist
+  - Specs a Leer — Organized by type (UCs, ADRs, Domain, Contracts)
+  - Invariantes Aplicables — Relevant invariants
+  - Contratos Resultantes — Endpoints and events to implement
+  - Verificación — Validation commands
+  - Alcance — Incluye/Excluye boundary table
+</ParamField>
+
+### Clarification taxonomy
+
+10 categories of implementation gaps requiring clarification:
+
+<ParamField path="CL-TECH" type="category">
+  Technology stack — Missing language/framework choices
+</ParamField>
+
+<ParamField path="CL-DATA" type="category">
+  Physical data model — Logical-to-physical mapping gaps
+</ParamField>
+
+<ParamField path="CL-ARCH" type="category">
+  Architecture topology — Undefined deployment strategy
+</ParamField>
+
+<ParamField path="CL-SEC" type="category">
+  Security implementation — Specs without library/pattern
+</ParamField>
+
+<ParamField path="CL-INTEG" type="category">
+  Integration patterns — Undefined external protocols
+</ParamField>
+
+<ParamField path="CL-PERF" type="category">
+  Performance strategy — NFR targets without strategy
+</ParamField>
+
+<ParamField path="CL-TEST" type="category">
+  Test implementation — Missing test framework
+</ParamField>
+
+<ParamField path="CL-CICD" type="category">
+  Build & deploy — Missing CI/CD definition
+</ParamField>
+
+<ParamField path="CL-OBS" type="category">
+  Observability — Missing monitoring/logging
+</ParamField>
+
+<ParamField path="CL-COST" type="category">
+  Cost & resources — Missing infrastructure cost estimate
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="plan/fases/" type="directory">
+  FASE navigation indices
+  
+  **Files:**
+  - `README.md` — Coverage matrices and dependency graph
+  - `FASE-N-{slug}.md` — One per implementation phase
+</ParamField>
+
+<ParamField path="plan/PLAN.md" type="file">
+  Master implementation plan
+  
+  **Sections:**
+  - Technical Context
+  - Component Decomposition
+  - Cross-FASE Concerns
+  - Risk Assessment
+  - Developer Quickstart
+  - Validation & Traceability
+</ParamField>
+
+<ParamField path="plan/CLARIFY-LOG.md" type="file">
+  Interactive clarification session log
+</ParamField>
+
+<ParamField path="plan/ARCHITECTURE.md" type="file">
+  Architecture views
+  
+  **Views:**
+  - C4 System Context (L1)
+  - C4 Container Diagram (L2)
+  - C4 Component Diagram (L3)
+  - Deployment View
+  - Physical Data Model
+  - Integration Map
+  - Security Architecture
+</ParamField>
+
+<ParamField path="plan/fase-plans/PLAN-FASE-N.md" type="file">
+  Per-FASE implementation details
+  
+  **Sections:**
+  - FASE-specific technical decisions
+  - Component implementation details
+  - API implementation notes
+  - Data changes (migrations)
+  - Test strategy
+  - Test Coverage Map (source → test mapping)
+</ParamField>
+
+---
+
+## task-generator
+
+Decomposes implementation plans into atomic, reversible tasks.
+
+### Invocation
+
+```bash
+/sdd:task-generator                                   # Full generation
+/sdd:task-generator --fase 0                          # Single FASE
+/sdd:task-generator --regen                           # Regenerate from scratch
+/sdd:task-generator --audit                           # Validate existing tasks
+/sdd:task-generator --fase=1 --incremental            # Cascade mode
+```
+
+### Task ID convention
+
+<ParamField path="format" type="string">
+  `TASK-F{N}-{SEQ}`
+  
+  **Examples:**
+  - `TASK-F0-001` — First task of FASE 0
+  - `TASK-F3-015` — 15th task of FASE 3
+</ParamField>
+
+### Task markers
+
+<ParamField path="[P]" type="marker">
+  Parallelizable — Can execute concurrently with other [P] tasks
+</ParamField>
+
+<ParamField path="blocks:" type="annotation">
+  Tasks that depend on this task completing
+</ParamField>
+
+<ParamField path="blocked-by:" type="annotation">
+  Tasks that must complete before this task
+</ParamField>
+
+<ParamField path="[RETROACTIVE]" type="marker">
+  Task documents already-implemented code (from reverse-engineer)
+</ParamField>
+
+<ParamField path="Source: CASCADE-{id}" type="annotation">
+  Task generated by req-change cascade
+</ParamField>
+
+### Task structure
+
+Each task entry includes:
+
+<ParamField path="Commit" type="field">
+  Pre-generated conventional commit message
+  
+  **Format:** `{type}({scope}): {description}`
+  
+  **Types:** feat, fix, refactor, test, chore, docs, ci, perf
+</ParamField>
+
+<ParamField path="Acceptance" type="field">
+  Concrete acceptance criteria from spec
+</ParamField>
+
+<ParamField path="Refs" type="field">
+  Traceability references (FASE, UC, ADR, INV, REQ)
+</ParamField>
+
+<ParamField path="Revert" type="field">
+  Revert strategy and impact assessment
+  
+  **Categories:** SAFE, COUPLED, MIGRATION, CONFIG
+</ParamField>
+
+<ParamField path="Review" type="field">
+  Review checklist for human reviewers
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="task/TASK-INDEX.md" type="file">
+  Global index of all tasks across all FASEs
+</ParamField>
+
+<ParamField path="task/TASK-ORDER.md" type="file">
+  Implementation order with dependency graph and critical path
+</ParamField>
+
+<ParamField path="task/TASK-FASE-N.md" type="file">
+  Tasks for FASE N organized by phase:
+  
+  1. Setup — Project structure, dependencies
+  2. Foundation — Shared infrastructure
+  3. Domain — Entities, value objects, services
+  4. Contracts — API routes, handlers, events
+  5. Integration — Wiring, event handlers
+  6. Tests — Unit, integration, BDD scenarios
+  7. Verification — End-to-end validation
+</ParamField>
+
+---
+
+## task-implementer
+
+Implements code from task documents with test-first development.
+
+### Invocation
+
+```bash
+/sdd:task-implementer --fase 0                        # Implement FASE 0
+/sdd:task-implementer --task TASK-F0-005              # Single task
+/sdd:task-implementer --continue                      # Resume from last
+/sdd:task-implementer --verify --fase 0               # Read-only verification
+/sdd:task-implementer --fase 1 --new-tasks-only       # Cascade mode
+```
+
+### Execution phases
+
+<ParamField path="Phase 0" type="phase">
+  Context loading
+  
+  Loads: CLAUDE.md, glossary, entities, states, invariants, FASE file, plan, task document
+</ParamField>
+
+<ParamField path="Phase 1" type="phase">
+  Readiness gates
+  
+  Validates: task document exists, plan exists, FASE exists, glossary exists, specs exist, git clean, tools available
+</ParamField>
+
+<ParamField path="Phase 2" type="phase">
+  Task selection & ordering
+  
+  Determines execution order respecting dependencies and [P] markers
+</ParamField>
+
+<ParamField path="Phase 3" type="phase">
+  Pre-implementation design
+  
+  Reads specs, extracts contracts, identifies invariants, analyzes integration
+</ParamField>
+
+<ParamField path="Phase 4" type="phase">
+  Test-first construction
+  
+  Writes failing tests for acceptance criteria, exception flows, and invariants (RED phase)
+</ParamField>
+
+<ParamField path="Phase 5" type="phase">
+  Implementation
+  
+  Writes code to pass tests (GREEN phase), then refactors (REFACTOR phase)
+</ParamField>
+
+<ParamField path="Phase 6" type="phase">
+  Quality verification
+  
+  Executes review checklist, runs full test suite, verifies build and lint
+</ParamField>
+
+<ParamField path="Phase 7" type="phase">
+  Atomic commit & SHA capture
+  
+  Stages task files, commits with pre-generated message, captures SHA for traceability
+</ParamField>
+
+<ParamField path="Phase 8" type="phase">
+  Progress tracking
+  
+  Updates task checkbox, reports progress with SHA, evaluates next task
+</ParamField>
+
+<ParamField path="Phase 9" type="phase">
+  FASE checkpoint & verification
+  
+  Creates git tag, verifies Criterios de Éxito, runs full test suite, checks coverage
+</ParamField>
+
+### Pause conditions
+
+Implementation pauses and asks user when:
+
+<ParamField path="PAUSE: Ambiguity" type="condition">
+  Spec does not define behavior clearly
+</ParamField>
+
+<ParamField path="PAUSE: Decision Pending" type="condition">
+  `[DECISION PENDIENTE]` marker found in spec
+</ParamField>
+
+<ParamField path="PAUSE: Spec-Implementation Conflict" type="condition">
+  Spec and plan contradict
+</ParamField>
+
+<ParamField path="PAUSE: Build Failure" type="condition">
+  Build fails after task implementation
+</ParamField>
+
+<ParamField path="PAUSE: Test Regression" type="condition">
+  Previously passing test now fails
+</ParamField>
+
+### Implementation feedback
+
+When spec-level issues are discovered during implementation:
+
+<ParamField path="feedback/IMPL-FEEDBACK-FASE-N.md" type="file">
+  Spec-level issues found during implementation
+  
+  **Issue types:** AMBIGUITY, CONFLICT, MISSING-BEHAVIOR, INCORRECT-CONTRACT, STALE-DECISION
+  
+  **Severities:** BLOCKER, WARNING
+  
+  Fed to `req-change` for spec corrections
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="src/**/*" type="directory">
+  Implementation code following project structure
+</ParamField>
+
+<ParamField path="tests/**/*" type="directory">
+  Unit tests, integration tests, BDD scenarios
+</ParamField>
+
+<ParamField path="task/TASK-FASE-N.md" type="file">
+  Updated with completed task checkboxes (`- [x]`)
+</ParamField>
+
+<ParamField path="feedback/IMPL-FEEDBACK-FASE-N.md" type="file">
+  (if spec issues found) Spec-level feedback for req-change
+</ParamField>
+
+<ParamField path="Git tags" type="artifact">
+  Checkpoint tags: `fase-N-setup`, `fase-N-domain`, `fase-N-verified`
+</ParamField>
+
+---
+
+## test-planner
+
+Generates comprehensive test plans and coverage maps.
+
+### Invocation
+
+```bash
+/sdd:test-planner                                     # Full test plan generation
+/sdd:test-planner --audit                             # Gap detection only
+/sdd:test-planner --fase 0                            # Single FASE scope
+```
+
+### Output artifacts
+
+<ParamField path="test/TEST-PLAN.md" type="file">
+  Master test plan
+  
+  **Sections:**
+  - Test strategy by type (unit, integration, e2e, performance, security)
+  - Coverage targets per FASE
+  - Test environment requirements
+  - Test data management
+  - CI/CD integration
+</ParamField>
+
+<ParamField path="test/TEST-MATRIX-{domain}.md" type="file">
+  Test coverage matrix per domain area
+  
+  **Columns:** Requirement, Use Case, Test Type, Test File, Coverage Status
+</ParamField>
+
+<ParamField path="test/PERF-SCENARIOS.md" type="file">
+  (if applicable) Performance test scenarios with load profiles and acceptance criteria
+</ParamField>

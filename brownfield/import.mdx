@@ -1,0 +1,480 @@
+---
+title: /sdd:import
+description: Converts external documentation to SDD format from Jira, OpenAPI, Markdown, Notion, CSV, and Excel sources.
+---
+
+The import skill converts external documentation into SDD format, supporting six source formats: Jira exports, OpenAPI/Swagger specifications, Markdown files, Notion exports, CSV files, and Excel spreadsheets. It auto-detects formats, maps fields to SDD artifacts, previews mappings for confirmation, and performs quality checks.
+
+## What it does
+
+<CardGroup cols={2}>
+  <Card title="Auto-detects formats" icon="wand-magic-sparkles">
+    Automatically identifies the format of input documentation or accepts explicit format specification.
+  </Card>
+  <Card title="Parses and maps" icon="sitemap">
+    Parses external documentation into a normalized representation and maps fields to SDD artifact fields.
+  </Card>
+  <Card title="Previews before generating" icon="eye">
+    Shows mapping preview for user confirmation before generating any artifacts.
+  </Card>
+  <Card title="Quality checks" icon="clipboard-check">
+    Verifies completeness, consistency, and traceability potential of generated artifacts.
+  </Card>
+</CardGroup>
+
+<Info>
+  The import skill works from exported files only. It does not access external services (Jira API, Notion API) directly. For real-time Notion sync, use `/sdd:sync-notion`.
+</Info>
+
+## Supported formats
+
+<Tabs>
+  <Tab title="Jira">
+    **File extensions:** `.json`, `.csv` (Jira export)
+    
+    **What it maps to:**
+    - Epics → requirement groups
+    - Stories → use cases
+    - Bugs → defect tracking
+    - Tasks → implementation notes
+    
+    **Detection:** JSON with `projects` or `issues` array, CSV with Jira column headers (`Summary`, `Issue Type`, `Status`, `Priority`)
+  </Tab>
+  
+  <Tab title="OpenAPI/Swagger">
+    **File extensions:** `.yaml`, `.json` (OpenAPI 3.x, Swagger 2.x)
+    
+    **What it maps to:**
+    - Paths → API contracts
+    - Schemas → domain model
+    - Security → NFRs
+    - Descriptions → requirements
+    
+    **Detection:** `openapi:` or `swagger:` key at root, validates against OpenAPI/Swagger schema
+  </Tab>
+  
+  <Tab title="Markdown">
+    **File extensions:** `.md`
+    
+    **What it maps to:**
+    - Headings → requirement sections
+    - Lists → individual requirements
+    - Code blocks → technical specs
+    
+    **Detection:** Standard markdown without format-specific markers
+  </Tab>
+  
+  <Tab title="Notion">
+    **File extensions:** `.md` (with metadata), `.csv` (exported databases)
+    
+    **What it maps to:**
+    - Database rows → requirements
+    - Pages → specifications
+    - Properties → requirement attributes
+    
+    **Detection:** Markdown with YAML front matter containing Notion properties, CSV with Notion property names
+  </Tab>
+  
+  <Tab title="CSV">
+    **File extensions:** `.csv`
+    
+    **What it maps to:**
+    - Columns → requirement fields
+    - Rows → individual requirements
+    
+    **Detection:** Delimiter detection, header row analysis
+  </Tab>
+  
+  <Tab title="Excel">
+    **File extensions:** `.xlsx`
+    
+    **What it maps to:**
+    - Sheets → artifact types
+    - Rows → individual items
+    - Named columns → requirement fields
+    
+    **Detection:** `.xlsx` binary detection
+  </Tab>
+</Tabs>
+
+## Invocation modes
+
+```bash
+# Auto-detect format from file(s)
+/sdd:import path/to/file.yaml
+
+# Explicit format
+/sdd:import path/to/export.csv --format=jira
+
+# Target specific artifact type
+/sdd:import path/to/api.yaml --target=specs
+
+# Merge with existing artifacts
+/sdd:import path/to/requirements.csv --merge
+
+# Multiple files
+/sdd:import docs/api.yaml docs/requirements.csv docs/notion-export/
+```
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| **default** | Auto-detect format, generate both requirements and specs | General import |
+| `--format=TYPE` | Skip auto-detection, use specified format | When auto-detection is ambiguous |
+| `--target=requirements` | Generate only `requirements/` artifacts | When source is requirements-focused |
+| `--target=specs` | Generate only `spec/` artifacts | When source is spec-focused (e.g., OpenAPI) |
+| `--target=both` | Generate both (default) | Full import |
+| `--merge` | Merge with existing SDD artifacts instead of creating new | Adding to existing SDD project |
+
+## Seven phases
+
+The import skill executes seven phases to transform external docs into SDD artifacts:
+
+### Phase 1: Format detection
+
+Identifies the format of input files:
+
+<Steps>
+  <Step title="Check file extension and content">
+    Examines file extension and inspects content for format-specific markers.
+  </Step>
+  <Step title="Resolve ambiguities">
+    If JSON but unclear source, checks for Jira fields vs OpenAPI fields. If CSV but unclear, checks column headers.
+  </Step>
+  <Step title="Validate format compatibility">
+    OpenAPI: validates against OpenAPI 3.x or Swagger 2.x schema. Jira: validates expected fields are present. CSV/Excel: validates has headers and parseable content.
+  </Step>
+</Steps>
+
+<Tip>
+  Use `--format=TYPE` to skip auto-detection when you know the source format. This is faster and avoids ambiguity.
+</Tip>
+
+### Phase 2: Parse input
+
+Parses files into a normalized intermediate representation:
+
+**Normalized intermediate format:**
+```json
+{
+  "items": [
+    {
+      "id": "original-id",
+      "title": "item title",
+      "description": "full description",
+      "type": "requirement | use-case | api-endpoint | entity | nfr",
+      "priority": "critical | high | medium | low",
+      "status": "active | deprecated | planned",
+      "group": "parent/category/epic name",
+      "attributes": { },
+      "relationships": [ ],
+      "source": { "file": "path", "line": N, "format": "jira|openapi" }
+    }
+  ],
+  "metadata": {
+    "format": "detected format",
+    "totalItems": N,
+    "parseErrors": [ ],
+    "skippedItems": [ ]
+  }
+}
+```
+
+**Edge case handling:**
+- Encoding issues (UTF-8, Latin-1, etc.)
+- Date format variations
+- Empty or null fields
+- Malformed entries (log and skip with reason)
+
+### Phase 3: Mapping preview
+
+Maps intermediate items to SDD artifact fields and presents for confirmation:
+
+<CodeGroup>
+```text Mapping preview
+Import Preview
+━━━━━━━━━━━━━━
+Source: api-spec.yaml, requirements.csv
+Format: OpenAPI 3.0, CSV
+
+Mapping Summary:
+  → 42 requirements (from CSV rows)
+  → 18 use cases (from CSV rows)
+  → 15 API contracts (from OpenAPI paths)
+  → 8 domain entities (from OpenAPI schemas)
+  → 5 NFRs (from OpenAPI security)
+
+  Skipped: 3 items (see details)
+  Parse errors: 0
+  Duplicates detected: 2 (merge mode)
+
+Sample Mappings:
+  Original: "As a user, I want to login with email"
+  → REQ-AUTH-001: WHEN a user submits email credentials THE system SHALL authenticate and return a session token
+
+  Original: POST /api/users (OpenAPI)
+  → API contract: POST /api/users with request/response schemas
+
+Proceed with import?
+```
+</CodeGroup>
+
+**Duplicate detection** (if `--merge`):
+- Compares imported items against existing SDD artifacts
+- Matches by: ID similarity, title similarity, description overlap
+- Flags duplicates for user review
+
+### Phase 4: User confirmation
+
+Gets user approval before generating artifacts:
+
+<AccordionGroup>
+  <Accordion title="Confirm mapping">
+    "Proceed with these mappings?"
+  </Accordion>
+  
+  <Accordion title="Handle duplicates (if --merge)">
+    "These 2 items match existing artifacts. Options: Skip / Merge / Replace"
+  </Accordion>
+  
+  <Accordion title="Resolve ambiguities">
+    Items that couldn't be auto-mapped get presented with options:
+    - "This item could be a requirement OR a use case. Which?"
+    - "This description doesn't fit EARS syntax. Import as-is or convert?"
+  </Accordion>
+  
+  <Accordion title="Confirm skipped items">
+    "These 3 items were skipped because {reasons}. Include anyway?"
+  </Accordion>
+</AccordionGroup>
+
+### Phase 5: Generate SDD artifacts
+
+Generates SDD-format artifacts from confirmed mappings:
+
+<Tabs>
+  <Tab title="Requirements">
+    **File:** `requirements/REQUIREMENTS.md`
+    
+    ```markdown
+    ### REQ-{GROUP}-{NNN}: {Title} [IMPORTED]
+    
+    > {EARS statement — converted from original description}
+    
+    - **Source:** Imported from {format} ({original-id})
+    - **Original text:** "{original description}"
+    - **Priority:** {mapped priority}
+    - **Imported:** {ISO-8601}
+    ```
+  </Tab>
+  
+  <Tab title="Domain Model">
+    **File:** `spec/domain.md`
+    
+    - Entities from OpenAPI schemas, Jira entity descriptions, or CSV entity rows
+    - Fields with types and constraints
+  </Tab>
+  
+  <Tab title="Use Cases">
+    **File:** `spec/use-cases.md`
+    
+    - From Jira stories, Markdown feature descriptions, or CSV use case rows
+    - Actor, preconditions, main flow, postconditions, alternative flows
+  </Tab>
+  
+  <Tab title="API Contracts">
+    **File:** `spec/contracts.md`
+    
+    - From OpenAPI paths — highest fidelity import
+    - Endpoints with full request/response schemas
+  </Tab>
+  
+  <Tab title="NFRs">
+    **File:** `spec/nfr.md`
+    
+    - From Jira non-functional items, OpenAPI security schemes, CSV NFR rows
+  </Tab>
+  
+  <Tab title="ADRs">
+    **Files:** `spec/adr/`
+    
+    - From Markdown decision records, Jira architecture decisions
+  </Tab>
+</Tabs>
+
+**Merge logic** (when `--merge`):
+- **New items:** Append to existing files with `[IMPORTED]` marker
+- **Duplicates (merge):** Update existing entry with imported data, mark `[MERGED]`
+- **Duplicates (skip):** Leave existing entry unchanged
+- **Duplicates (replace):** Overwrite existing with imported, mark `[IMPORTED-REPLACED]`
+
+### Phase 6: Quality check
+
+Verifies quality of generated artifacts:
+
+<CardGroup cols={2}>
+  <Card title="Completeness check" icon="list-check">
+    - All imported items have SDD IDs
+    - All requirements have EARS syntax (or `[UNCONVERTED]` tag)
+    - All use cases have actors, preconditions, postconditions
+    - All API contracts have request/response schemas
+  </Card>
+  <Card title="Consistency check" icon="equals">
+    - No duplicate IDs
+    - All cross-references resolve (REQ→UC links)
+    - Priority distribution is reasonable (not all CRITICAL)
+    - Group structure is coherent
+  </Card>
+  <Card title="Traceability readiness" icon="link">
+    - Requirements can link to use cases
+    - Use cases can link to API contracts
+    - Identifies gaps in the chain
+  </Card>
+  <Card title="Quality metrics" icon="chart-line">
+    - Items imported: N/total
+    - EARS conversion rate: X%
+    - Traceability ready: X%
+    - Quality issues: N
+    - Manual review needed: N items
+  </Card>
+</CardGroup>
+
+### Phase 7: Pipeline state update
+
+Updates pipeline state to reflect imported artifacts:
+
+- If `pipeline-state.json` does not exist → creates with imported stages marked `done`
+- If it exists:
+  - If `requirements-engineer` was `pending` and requirements were imported → set to `done`
+  - If `specifications-engineer` was `pending` and specs were imported → set to `done`
+  - Marks downstream stages as needing run
+- Generates import report: `import/IMPORT-REPORT.md`
+- Records import metadata for future reference (source files, mapping rules used)
+
+## Output format
+
+The import skill generates an import report at `import/IMPORT-REPORT.md`:
+
+**Key sections:**
+- Source files and formats
+- Import statistics (parsed, mapped, skipped, errors)
+- Mapping summary (original → SDD)
+- Quality assessment
+- Items needing manual review
+- Pipeline state impact
+
+<Tip>
+  Review the quality assessment section carefully. Items tagged with `[UNCONVERTED]` require manual conversion to EARS syntax before proceeding with downstream stages.
+</Tip>
+
+## Format-specific tips
+
+<AccordionGroup>
+  <Accordion title="Jira exports">
+    **Best practices:**
+    - Export as JSON for highest fidelity (preserves all fields and relationships)
+    - Include custom fields relevant to requirements (acceptance criteria, business value)
+    - Export from JQL query to filter only relevant issues
+    
+    **Mapping:**
+    - Epic → Requirement group
+    - Story → Use case
+    - Task → Implementation note or sub-requirement
+    - Bug → Defect finding (can be imported for tracking)
+  </Accordion>
+  
+  <Accordion title="OpenAPI/Swagger">
+    **Best practices:**
+    - Use OpenAPI 3.x for best results (richer schema support)
+    - Include descriptions for all paths and schemas
+    - Use `summary` and `description` fields extensively
+    - Define security schemes explicitly
+    
+    **Mapping:**
+    - Paths → API contracts (highest fidelity)
+    - Schemas → Domain model entities
+    - Security schemes → Security NFRs
+    - Path descriptions → Functional requirements
+  </Accordion>
+  
+  <Accordion title="Markdown files">
+    **Best practices:**
+    - Use consistent heading structure (H2 for groups, H3 for requirements)
+    - Use bullet lists for individual requirements
+    - Include acceptance criteria as nested lists
+    - Use code blocks for technical specifications
+    
+    **Mapping:**
+    - H1 → Document title (ignored)
+    - H2 → Requirement group
+    - H3 → Individual requirement (converted to EARS)
+    - Lists → Sub-requirements or acceptance criteria
+  </Accordion>
+  
+  <Accordion title="Notion exports">
+    **Best practices:**
+    - Export as Markdown with subpages for hierarchical structure
+    - Export databases as CSV for tabular requirements
+    - Use consistent property names (Title, Description, Priority, Status)
+    - Include Relations for traceability
+    
+    **Mapping:**
+    - Database rows → Requirements or use cases
+    - Page content → Specification documents
+    - Properties → Requirement attributes (priority, status, assignee)
+  </Accordion>
+  
+  <Accordion title="CSV files">
+    **Best practices:**
+    - Include headers in first row
+    - Use standard column names: ID, Title, Description, Priority, Status, Type
+    - Use consistent values (e.g., "High" not "high" or "HIGH")
+    - Escape commas and quotes in description fields
+    
+    **Mapping:**
+    - ID column → Preserved as source reference
+    - Title/Summary column → Requirement title
+    - Description column → Converted to EARS statement
+    - Type column → Determines artifact type (requirement, use case, NFR)
+  </Accordion>
+  
+  <Accordion title="Excel spreadsheets">
+    **Best practices:**
+    - Use one sheet per artifact type (Requirements, Use Cases, NFRs)
+    - Name sheets consistently
+    - Use first row for headers
+    - Use data validation for priority and status columns
+    
+    **Mapping:**
+    - Sheet name → Artifact type
+    - Rows → Individual items
+    - Columns → Requirement fields
+  </Accordion>
+</AccordionGroup>
+
+## Relationship to other skills
+
+<CardGroup cols={2}>
+  <Card title="Onboarding skill" icon="clipboard-list" href="/brownfield/onboarding">
+    Onboarding recommends import when external docs are detected (scenarios 5, 8).
+  </Card>
+  <Card title="Reverse engineer skill" icon="magnifying-glass-chart" href="/brownfield/reverse-engineer">
+    Import may run before reverse-engineer to pre-populate requirements from docs.
+  </Card>
+  <Card title="Reconcile skill" icon="arrows-rotate" href="/brownfield/reconcile">
+    Run after import + reverse-engineer to verify alignment between imported docs and code.
+  </Card>
+  <Card title="Spec auditor" icon="clipboard-check" href="/pipeline/spec-auditor">
+    Run after import to audit imported specs for defects and inconsistencies.
+  </Card>
+</CardGroup>
+
+## Constraints
+
+1. **File-based only:** Works from exported files, NOT direct API access to Jira/Notion/etc.
+2. **No overwrites:** Never overwrites existing SDD artifacts without explicit user confirmation via `--merge`.
+3. **Preview first:** Always shows mapping preview before generating artifacts.
+4. **EARS conversion:** Attempts to convert all requirements to EARS syntax. Tags as `[UNCONVERTED]` if automatic conversion fails.
+5. **Source tracing:** Every imported item must reference its source (file, line/row, original ID).
+6. **Error tolerance:** Parse errors on individual items do NOT abort the entire import. Logs errors, skips items, continues.
+7. **Encoding safe:** Handles UTF-8, Latin-1, and common encodings gracefully.
+8. **No secrets:** Skips/redacts any fields that appear to contain secrets (API keys, tokens, passwords).

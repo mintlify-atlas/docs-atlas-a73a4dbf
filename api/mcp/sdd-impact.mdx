@@ -1,0 +1,181 @@
+---
+title: sdd_impact
+description: Analyze blast radius of changing an artifact
+---
+
+## Overview
+
+Analyze blast radius of changing an artifact. Uses BFS by depth to classify impact: depth 1 = WILL_BREAK, depth 2 = LIKELY_AFFECTED, depth 3 = MAY_NEED_REVIEW. When code intelligence is available, uses call graph for deeper analysis.
+
+This tool helps you understand the consequences of modifying a requirement, use case, or any other artifact by traversing the traceability graph and identifying all dependent or dependency artifacts.
+
+## Parameters
+
+<ParamField path="artifact_id" type="string" required>
+  The artifact ID to analyze (e.g. `REQ-AUTH-001`, `UC-003`)
+</ParamField>
+
+<ParamField path="direction" type="enum" required>
+  Direction to traverse:
+  - `upstream` - What does this depend on?
+  - `downstream` - What depends on this?
+</ParamField>
+
+<ParamField path="maxDepth" type="number" default="3">
+  Maximum traversal depth
+</ParamField>
+
+## Response
+
+<ResponseField name="artifact" type="object">
+  The root artifact being analyzed
+  <ResponseField name="id" type="string">
+    Artifact ID
+  </ResponseField>
+  <ResponseField name="type" type="string">
+    Artifact type
+  </ResponseField>
+  <ResponseField name="title" type="string">
+    Artifact title
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="direction" type="string">
+  Traversal direction (upstream or downstream)
+</ResponseField>
+
+<ResponseField name="maxDepth" type="number">
+  Maximum depth traversed
+</ResponseField>
+
+<ResponseField name="risk" type="enum">
+  Overall risk level:
+  - `HIGH` - More than 5 direct dependents or 20 total affected
+  - `MEDIUM` - More than 2 direct dependents or 10 total affected
+  - `LOW` - Fewer dependents
+</ResponseField>
+
+<ResponseField name="totalAffected" type="number">
+  Total number of artifacts affected across all depths
+</ResponseField>
+
+<ResponseField name="byDepth" type="object">
+  Artifacts grouped by depth level
+  <ResponseField name="[depth]" type="object">
+    <ResponseField name="label" type="string">
+      Impact label: `WILL_BREAK`, `LIKELY_AFFECTED`, or `MAY_NEED_REVIEW`
+    </ResponseField>
+    <ResponseField name="count" type="number">
+      Number of artifacts at this depth
+    </ResponseField>
+    <ResponseField name="artifacts" type="array">
+      <ResponseField name="id" type="string">
+        Artifact ID
+      </ResponseField>
+      <ResponseField name="type" type="string">
+        Artifact type
+      </ResponseField>
+      <ResponseField name="title" type="string">
+        Artifact title
+      </ResponseField>
+      <ResponseField name="file" type="string">
+        Source file path
+      </ResponseField>
+      <ResponseField name="viaRelationship" type="string">
+        Relationship type connecting to this artifact
+      </ResponseField>
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="affectedStages" type="string[]">
+  List of pipeline stages affected by this change
+</ResponseField>
+
+<ResponseField name="codeImpact" type="object" optional>
+  Code intelligence enrichment (when available)
+  <ResponseField name="directSymbols" type="array">
+    Code symbols directly related to the artifact
+    <ResponseField name="name" type="string">
+      Symbol name
+    </ResponseField>
+    <ResponseField name="file" type="string">
+      File path
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Symbol type (function, class, etc.)
+    </ResponseField>
+  </ResponseField>
+  <ResponseField name="transitiveCallers" type="string[]">
+    Functions that call the related symbols
+  </ResponseField>
+  <ResponseField name="totalCallChainDepth" type="number">
+    Total depth of the call chain
+  </ResponseField>
+</ResponseField>
+
+## Impact depth labels
+
+- **Depth 1 (WILL_BREAK)**: Direct dependencies that will definitely be affected
+- **Depth 2 (LIKELY_AFFECTED)**: Second-degree connections that will likely need updates
+- **Depth 3 (MAY_NEED_REVIEW)**: Third-degree connections that may need review
+
+## Examples
+
+### Analyze downstream impact of a requirement
+
+```json
+{
+  "artifact_id": "REQ-AUTH-001",
+  "direction": "downstream"
+}
+```
+
+### Check upstream dependencies with limited depth
+
+```json
+{
+  "artifact_id": "UC-LOGIN-003",
+  "direction": "upstream",
+  "maxDepth": 2
+}
+```
+
+### Assess blast radius before major changes
+
+```json
+{
+  "artifact_id": "API-USER-MGMT",
+  "direction": "downstream",
+  "maxDepth": 4
+}
+```
+
+## TypeScript types
+
+```typescript
+interface ImpactArgs {
+  artifact_id: string;
+  direction: "upstream" | "downstream";
+  maxDepth?: number;
+}
+
+interface AffectedArtifact {
+  id: string;
+  type: string;
+  title: string;
+  file: string;
+  viaRelationship: string;
+}
+
+const DEPTH_LABELS: Record<number, string> = {
+  1: "WILL_BREAK",
+  2: "LIKELY_AFFECTED",
+  3: "MAY_NEED_REVIEW",
+};
+```
+
+## See also
+
+- [sdd_context](/api/mcp/sdd-context) - Get full context including relationships
+- [sdd_trace](/api/mcp/sdd-trace) - Trace complete traceability chain

@@ -1,0 +1,126 @@
+---
+title: SDD Plugin for Claude Code
+description: Turn requirements into production code through a structured, auditable pipeline based on SWEBOK v4
+---
+
+# SDD Plugin for Claude Code
+
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) plugin that turns requirements into production code through a structured, auditable pipeline. Based on SWEBOK v4. Works with new and existing projects.
+
+<CardGroup cols={4}>
+  <Card title="20 skills" icon="wand-magic-sparkles" />
+  <Card title="5 MCP tools" icon="plug" />
+  <Card title="8 agents" icon="robot" />
+  <Card title="4 hooks" icon="code-branch" />
+</CardGroup>
+
+## How it works
+
+The plugin guides you through a linear pipeline — each step produces artifacts that feed the next:
+
+```
+Requirements → Specifications → Audit → Test Plan → Architecture → Tasks → Code
+```
+
+Every artifact is traceable end-to-end:
+
+```
+REQ → UC → WF → API → BDD → INV → ADR → TASK → COMMIT → CODE → TEST
+```
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card 
+    title="Greenfield projects" 
+    icon="seedling"
+    href="/quickstart#new-project-greenfield"
+  >
+    Start from zero with interactive requirements gathering and automated pipeline execution
+  </Card>
+  
+  <Card 
+    title="Brownfield projects" 
+    icon="building"
+    href="/quickstart#existing-project-brownfield"
+  >
+    Adopt SDD in existing codebases with reverse engineering and reconciliation tools
+  </Card>
+  
+  <Card 
+    title="Full traceability" 
+    icon="link"
+    href="/concepts/traceability"
+  >
+    Interactive HTML dashboard shows connections from requirements to commits
+  </Card>
+  
+  <Card 
+    title="Automated guardrails" 
+    icon="shield-check"
+    href="/automation/guardrails"
+  >
+    Hooks and agents enforce consistency without manual setup
+  </Card>
+</CardGroup>
+
+## Standards-based
+
+Built on industry standards and best practices:
+
+- **SWEBOK v4** — Software Engineering Body of Knowledge
+- **OWASP ASVS v4** — Application Security Verification Standard
+- **CWE** — Common Weakness Enumeration
+- **IEEE 830** — Software Requirements Specification
+- **ISO 14764** — Software Engineering Maintenance
+- **C4 Model** — Architecture diagrams
+- **Gherkin/BDD** — Behavior-driven development
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card 
+    title="Installation" 
+    icon="download"
+    href="/installation"
+  >
+    Install the plugin and set up your first project
+  </Card>
+  
+  <Card 
+    title="Quick start" 
+    icon="rocket"
+    href="/quickstart"
+  >
+    Run through a complete pipeline in 5 minutes
+  </Card>
+</CardGroup>
+
+## Key conventions
+
+<Note>
+All skills follow these conventions to ensure consistency and traceability throughout the pipeline.
+</Note>
+
+| Convention | Description |
+|-----------|-------------|
+| **EARS syntax** | `WHEN <trigger> THE <system> SHALL <behavior>` |
+| **1 task = 1 commit** | Each task produces one commit with `Refs:` and `Task:` trailers |
+| **Clarification-first** | Skills never assume — they ask with structured options |
+| **Full traceability** | REQ → UC → WF → API → BDD → INV → ADR → TASK → COMMIT → CODE → TEST |
+
+## What's next?
+
+<Steps>
+  <Step title="Install the plugin">
+    Follow the [installation guide](/installation) to get started
+  </Step>
+  
+  <Step title="Initialize your project">
+    Run `/sdd:setup` to create the pipeline structure
+  </Step>
+  
+  <Step title="Start the pipeline">
+    Begin with `/sdd:requirements-engineer` to gather requirements
+  </Step>
+</Steps>

@@ -1,0 +1,317 @@
+---
+title: /sdd:onboarding
+description: Project detector and SDD adoption planner. Diagnoses current state and generates step-by-step action plans for any project.
+---
+
+The onboarding skill scans your project to detect existing SDD artifacts, documentation, code, tests, and infrastructure. It classifies the project into one of 8 scenarios and generates a detailed, step-by-step action plan for adopting SDD.
+
+## What it does
+
+<CardGroup cols={2}>
+  <Card title="Diagnoses project state" icon="stethoscope">
+    Scans for SDD artifacts, non-SDD documentation, code structure, tests, and infrastructure signals.
+  </Card>
+  <Card title="Classifies into scenarios" icon="sitemap">
+    Uses a weighted signal matrix to classify your project into one of 8 predefined scenarios.
+  </Card>
+  <Card title="Calculates health score" icon="heart-pulse">
+    Estimates SDD readiness (0-100) across 7 dimensions including requirements, specs, tests, and traceability.
+  </Card>
+  <Card title="Generates action plan" icon="list-check">
+    Produces a step-by-step plan specifying which SDD skills to run and in what order.
+  </Card>
+</CardGroup>
+
+<Info>
+  The onboarding skill is **read-only**. It recommends actions but never modifies files or executes skills. You decide when to start.
+</Info>
+
+## Invocation modes
+
+```bash
+# Full diagnostic (default)
+/sdd:onboarding
+
+# Quick scan — skips deep code analysis
+/sdd:onboarding --quick
+
+# Reassessment — re-evaluates after partial SDD adoption
+/sdd:onboarding --reassess
+```
+
+| Mode | Phases Executed | Use Case |
+|------|----------------|----------|
+| **default** | All 7 phases | First-time project assessment |
+| `--quick` | Phases 1-3, 6-7 (skip deep analysis) | Quick triage, initial estimation |
+| `--reassess` | All 7 phases, compares with previous report | Mid-adoption progress check |
+
+## Seven phases
+
+The onboarding skill executes seven phases to build a complete picture of your project:
+
+### Phase 1: Environment check
+
+Establishes project context and boundaries:
+
+- Detects project root (`.git/`, `package.json`, `Cargo.toml`, `pyproject.toml`, etc.)
+- Identifies primary languages and frameworks
+- Detects package manager and dependency count
+- Checks for monorepo structure (workspaces, Lerna, Nx, Turborepo)
+- Detects CI/CD configuration (`.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`)
+- Records git history stats: commits, contributors, age, last commit date
+
+### Phase 2: SDD artifact scan
+
+Determines if the project has existing SDD artifacts:
+
+- Scans for `pipeline-state.json` and reads current stage status
+- Scans for SDD directories: `requirements/`, `spec/`, `audits/`, `test/`, `plan/`, `task/`
+- Counts files, lines, and checks for key files (`REQUIREMENTS.md`, `ARCHITECTURE.md`)
+- Verifies internal cross-references (REQ-XXX, UC-XXX patterns)
+- Calculates SDD artifact coverage percentage
+
+### Phase 3: Non-SDD documentation scan
+
+Finds existing documentation that could be leveraged:
+
+- Documentation files: `README.md`, `CONTRIBUTING.md`, `docs/` directory
+- API documentation: OpenAPI/Swagger, GraphQL schemas, Postman collections
+- External tool exports: Jira exports, CSV/Excel files, Notion exports
+- Architecture documents: `ARCHITECTURE.md`, ADRs, diagram files
+- Evaluates documentation quality: freshness, coverage, cross-referencing
+
+### Phase 4: Code and test analysis
+
+Assesses codebase size, structure, and test coverage (skipped in `--quick` mode):
+
+- Counts source files by language and directory
+- Identifies architectural layers: routes, services, data access, models, utilities
+- Detects design patterns: MVC, CQRS, event sourcing, microservices
+- Scans for test frameworks, counts tests by type, calculates test-to-source ratio
+- Detects code quality signals: linters, type checking, code comments
+- Identifies database/storage: ORMs, migration files, schema definitions
+
+### Phase 5: Scenario classification
+
+Classifies the project using the detection matrix:
+
+<Steps>
+  <Step title="Evaluate signals">
+    Each signal from Phases 1-4 is evaluated against the detection matrix.
+  </Step>
+  <Step title="Calculate weighted scores">
+    Weighted scores are calculated for each of the 8 scenarios.
+  </Step>
+  <Step title="Apply confidence thresholds">
+    HIGH (&gt;75%): Single clear match. MEDIUM (50-75%): Primary with secondary signals. LOW (&lt;50%): Ambiguous.
+  </Step>
+  <Step title="Document evidence">
+    All classification evidence is documented for transparency.
+  </Step>
+</Steps>
+
+### Phase 6: Health score estimation
+
+Calculates a numeric health score (0-100) representing SDD readiness:
+
+| Dimension | Weight | Scoring Criteria |
+|-----------|--------|------------------|
+| Requirements coverage | 20 pts | 0=none, 10=informal docs, 20=SDD format |
+| Specification coverage | 20 pts | 0=none, 10=partial specs, 20=full spec/ |
+| Test coverage | 15 pts | 0=none, 8=some tests, 15=good coverage+plan |
+| Architecture documentation | 15 pts | 0=none, 8=README/diagrams, 15=SDD plan/ |
+| Traceability | 15 pts | 0=none, 8=partial refs, 15=full chain |
+| Code quality signals | 10 pts | 0=none, 5=linter, 10=types+linter+CI |
+| Pipeline state | 5 pts | 0=none, 3=partial, 5=complete pipeline-state.json |
+
+**Score interpretation:**
+
+- **80-100 (Grade A):** SDD compliant — minor gaps only
+- **60-79 (Grade B):** Partial SDD — clear path to completion
+- **40-59 (Grade C):** Significant work needed — leverage existing assets
+- **20-39 (Grade D):** Major effort required — systematic adoption needed
+- **0-19 (Grade F):** Starting from scratch or near-scratch
+
+### Phase 7: Action plan generation
+
+Generates a concrete, step-by-step plan for SDD adoption:
+
+- Selects the template matching the classified scenario
+- Customizes based on project-specific findings
+- Adjusts steps based on detected documentation leverage potential
+- Estimates effort per step (S/M/L/XL)
+- Calculates projected health score progression after each step
+- Identifies risk factors and mitigation suggestions
+
+## Eight project scenarios
+
+The onboarding skill classifies projects into eight scenarios:
+
+<AccordionGroup>
+  <Accordion title="Scenario 1: Greenfield" icon="seedling">
+    **Key signal:** No code, no docs
+    
+    **Primary action:** Standard pipeline from `/sdd:requirements-engineer`
+    
+    **Action plan:**
+    1. Run `/sdd:setup` to initialize pipeline state
+    2. Run `/sdd:requirements-engineer` to gather requirements
+    3. Follow standard pipeline through to implementation
+  </Accordion>
+  
+  <Accordion title="Scenario 2: Brownfield bare" icon="code">
+    **Key signal:** Code exists, no docs, no tests
+    
+    **Primary action:** `/sdd:reverse-engineer` full
+    
+    **Action plan:**
+    1. Run `/sdd:reverse-engineer` to generate all SDD artifacts from code
+    2. Review and validate inferred artifacts
+    3. Run `/sdd:spec-auditor` to audit generated specs
+    4. Resume pipeline from test planning or task generation as needed
+  </Accordion>
+  
+  <Accordion title="Scenario 3: SDD drift" icon="split">
+    **Key signal:** SDD artifacts + code have diverged
+    
+    **Primary action:** `/sdd:reconcile`
+    
+    **Action plan:**
+    1. Run `/sdd:reconcile` to detect and classify all divergences
+    2. Review and approve reconciliation decisions
+    3. Apply updates to SDD artifacts
+    4. Re-run downstream pipeline stages affected by changes
+  </Accordion>
+  
+  <Accordion title="Scenario 4: Partial SDD" icon="list-check">
+    **Key signal:** Some SDD artifacts exist, incomplete pipeline
+    
+    **Primary action:** Resume pipeline from gap
+    
+    **Action plan:**
+    1. Run `/sdd:pipeline-status` to identify the gap
+    2. Resume from the first incomplete stage
+    3. Complete remaining pipeline stages in order
+  </Accordion>
+  
+  <Accordion title="Scenario 5: Brownfield with docs" icon="book">
+    **Key signal:** Code + non-SDD documentation exist
+    
+    **Primary action:** `/sdd:import` → `/sdd:reverse-engineer` → `/sdd:reconcile`
+    
+    **Action plan:**
+    1. Run `/sdd:import` on all external documentation (Jira, OpenAPI, Markdown)
+    2. Run `/sdd:reverse-engineer` to extract specs from code and fill gaps
+    3. Run `/sdd:reconcile` to align imported docs with code reality
+    4. Resume standard pipeline from test planning
+  </Accordion>
+  
+  <Accordion title="Scenario 6: Tests as spec" icon="flask">
+    **Key signal:** Good tests, poor or no documentation
+    
+    **Primary action:** `/sdd:reverse-engineer` with test-first strategy
+    
+    **Action plan:**
+    1. Run `/sdd:reverse-engineer` (extracts behavior from test assertions)
+    2. Review test-derived specs for completeness
+    3. Fill documentation gaps for untested features
+    4. Resume pipeline from spec auditing
+  </Accordion>
+  
+  <Accordion title="Scenario 7: Multi-team" icon="users">
+    **Key signal:** Monorepo/microservices, mixed states
+    
+    **Primary action:** Per-module assessment, phased adoption
+    
+    **Action plan:**
+    1. Run `/sdd:onboarding --scope=module1` for each module
+    2. Prioritize modules by: criticality, team readiness, dependencies
+    3. Apply module-specific adoption strategies
+    4. Establish shared conventions for cross-module traceability
+  </Accordion>
+  
+  <Accordion title="Scenario 8: Fork/migration" icon="code-branch">
+    **Key signal:** Forked from another project
+    
+    **Primary action:** Assess upstream, `/sdd:import`/`/sdd:reverse-engineer` delta
+    
+    **Action plan:**
+    1. Import upstream SDD artifacts if available
+    2. Run `/sdd:reverse-engineer` on delta (new/changed code)
+    3. Run `/sdd:reconcile` to merge upstream and delta artifacts
+    4. Document fork rationale as ADRs
+  </Accordion>
+</AccordionGroup>
+
+## Output format
+
+The onboarding skill generates a comprehensive report at `onboarding/ONBOARDING-REPORT.md`:
+
+```markdown
+# SDD Onboarding Report
+
+> Generated: {ISO-8601}
+> Project: {project-name}
+> Mode: {default|quick|reassess}
+
+## 1. Executive Summary
+
+- **Scenario:** {scenario name} (confidence: {HIGH|MEDIUM|LOW})
+- **Health Score:** {score}/100 ({grade})
+- **Recommended approach:** {1-2 sentence summary}
+- **Estimated total effort:** {S|M|L|XL}
+
+## 2. Environment Profile
+{environment details from Phase 1}
+
+## 3. Current State Assessment
+{SDD artifacts, existing documentation, code & test analysis}
+
+## 4. Scenario Classification
+{classified scenario with evidence}
+
+## 5. Health Score Breakdown
+{per-dimension scores}
+
+## 6. Action Plan
+{step-by-step plan with effort estimates}
+
+## 7. Next Steps
+{exact command to run first skill}
+```
+
+<Tip>
+  The report includes the exact command to invoke the first skill in your action plan. Copy and paste to begin adoption.
+</Tip>
+
+## Reassessment mode
+
+Use `--reassess` to check progress after partial adoption:
+
+```bash
+/sdd:onboarding --reassess
+```
+
+Reassessment mode:
+- Loads the previous `ONBOARDING-REPORT.md`
+- Re-executes all 7 phases with fresh data
+- Compares with previous assessment (health score delta, steps completed)
+- Generates updated report with a "Progress Since Last Assessment" section
+- Adjusts remaining action plan based on current state
+
+## Relationship to other skills
+
+<CardGroup cols={2}>
+  <Card title="Import skill" icon="file-import" href="/brownfield/import">
+    Onboarding recommends import when external docs are found (scenarios 5, 8).
+  </Card>
+  <Card title="Reverse engineer skill" icon="magnifying-glass-chart" href="/brownfield/reverse-engineer">
+    Onboarding recommends reverse engineering for brownfield/bare scenarios (2, 5, 6, 8).
+  </Card>
+  <Card title="Reconcile skill" icon="arrows-rotate" href="/brownfield/reconcile">
+    Onboarding recommends reconcile when drift is detected (scenario 3).
+  </Card>
+  <Card title="Pipeline status" icon="list-check" href="/utilities/pipeline-status">
+    Onboarding provides deeper analysis than pipeline-status but uses similar data.
+  </Card>
+</CardGroup>

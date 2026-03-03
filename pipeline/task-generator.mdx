@@ -1,0 +1,266 @@
+---
+title: Task generator
+description: Generate atomic, reversible, human-reviewable implementation tasks from FASE files and plans
+---
+
+The task generator decomposes FASE files and implementation plans into atomic, reversible, human-reviewable tasks with conventional commit messages, traceability, parallel execution markers, review checklists, and revert strategies.
+
+## Purpose
+
+This skill helps you:
+- Generate atomic tasks that map 1:1 to git commits
+- Pre-define commit messages with conventional format
+- Document revert strategies per task
+- Create review checklists for human reviewers
+- Establish task ordering and dependency graphs
+- Identify parallelization opportunities
+- Mark checkpoints for rollback
+
+## When to use
+
+Use this skill when:
+- Plan artifacts exist in `plan/` (from plan-architect)
+- FASE files exist in `plan/fases/` (from plan-architect)
+- The `task/` directory is empty or outdated
+- Starting implementation and need atomic work items
+- Onboarding developers who need a clear work breakdown
+- Setting up a project board or issue tracker
+
+## Core principles
+
+### One task = one commit
+
+Each task must be completable and committable independently. If a task requires other uncommitted work, those are dependencies, not parts of the same task.
+
+```
+WRONG: "Implement user authentication" (multiple files, multiple concerns)
+RIGHT: "Create User entity schema in src/domain/user.ts"
+RIGHT: "Add authentication middleware in src/middleware/auth.ts"
+```
+
+### Reversibility by design
+
+Every task document includes a revert strategy documenting what breaks if the commit is reverted and how to recover.
+
+```
+RIGHT: Each task's commit can be reverted with `git revert <sha>`
+RIGHT: Database migrations include down() alongside up()
+RIGHT: Feature flags isolate incomplete features
+```
+
+### Human reviewable
+
+Each task has clear acceptance criteria and verification commands that a reviewer can run.
+
+### Full traceability
+
+Every task references:
+- FASE it belongs to (e.g., FASE-0)
+- Spec documents it implements (e.g., UC-001, ADR-002)
+- Invariants it must satisfy (e.g., INV-SEC-001)
+- Requirements it fulfills (e.g., REQ-EXT-001)
+- Plan section it derives from (e.g., PLAN-FASE-0 §3.2)
+
+### Specs as single source of truth
+
+Derive tasks from what is specified in plan + FASE. Only write to `task/`. Flag gaps as [PLAN GAP] requiring plan-architect.
+
+## Task ID convention
+
+Format: `TASK-F{N}-{SEQ}`
+
+- `F{N}` = FASE number (F0, F1, F2, ..., F8)
+- `{SEQ}` = 3-digit sequential number within the FASE (001, 002, ..., 999)
+
+Examples:
+- `TASK-F0-001`: First task of FASE 0 (Bootstrap)
+- `TASK-F0-042`: 42nd task of FASE 0
+- `TASK-F3-015`: 15th task of FASE 3
+
+Tasks that can execute concurrently are marked with `[P]` (parallelizable).
+
+## Process
+
+<Steps>
+
+<Step title="Inventory and validation">
+Read all FASE files, per-FASE plans, architecture, global plan, and glossary. Validate prerequisites: FASE files exist, plan artifacts exist for target FASEs, glossary exists, FASE files are current.
+</Step>
+
+<Step title="FASE analysis">
+For each FASE, extract success criteria (become acceptance criteria groups), specs to read (become traceability references), applicable invariants (become validation constraints), resulting contracts (become deliverable tasks), scope, and dependencies.
+</Step>
+
+<Step title="Plan decomposition">
+Decompose plan sections into atomic tasks:
+- 1 task per entity
+- 1 task per route-group
+- 1 task per middleware
+- 1 task per service class
+- 1 task per schema change
+- 1 task per source file that needs tests
+- 1 task per config concern
+- 1 task per integration
+
+Size heuristic: If a task would touch more than 3 files, split it.
+</Step>
+
+<Step title="Dependency resolution">
+Establish task ordering and parallel opportunities. Identify files each task creates/modifies (write-set) and files it reads/imports (read-set). Task B depends on Task A if B's read-set intersects A's write-set. Mark independent tasks as [P] (parallelizable).
+
+Phase ordering within each FASE:
+1. Setup: project structure, dependencies, configuration
+2. Foundation: shared infrastructure (DB schemas, middleware, base classes)
+3. Domain: entities, value objects, domain services
+4. Contract: API routes, handlers, event schemas
+5. Integration: wiring, event handlers, background jobs
+6. Test: unit tests, integration tests, BDD scenarios
+7. Verification: end-to-end validation, checkpoint
+</Step>
+
+<Step title="Commit message generation">
+Pre-generate conventional commit messages for each task using format:
+```
+{type}({scope}): {description}
+
+Refs: {FASE}, {UC/ADR/INV references}
+Task: {TASK-ID}
+```
+
+Types: feat (new functionality), fix (bug fixes), refactor (restructuring), test (tests), chore (config/build), docs (documentation), ci (CI/CD), perf (performance).
+</Step>
+
+<Step title="Revert strategy generation">
+For each task, document revert impact and recovery steps:
+- Revert command: `git revert <sha> --no-edit`
+- Impact: what breaks if reverted
+- Recovery: steps to recover after revert
+- Safe to revert independently: yes/no
+- Requires coordinated revert with: list of coupled tasks
+
+Revert safety categories: SAFE (single git revert), COUPLED (revert in reverse order), MIGRATION (requires down migration first), CONFIG (requires restart/redeploy).
+</Step>
+
+<Step title="Review checklist generation">
+Generate per-task review checklist:
+- Code compiles without errors
+- Follows ubiquitous language from glossary
+- Satisfies acceptance criteria
+- Referenced invariants are enforced
+- No secrets or credentials in code
+- Error handling follows ADR patterns
+- Domain-specific checks based on task type
+</Step>
+
+<Step title="Document generation">
+Generate per-FASE task files (`TASK-FASE-{N}.md`), global index (`TASK-INDEX.md`), and implementation order (`TASK-ORDER.md`) with dependency graph, critical path, and parallel opportunities.
+</Step>
+
+<Step title="Validation">
+Verify:
+- Every FASE success criterion maps to at least one task
+- Every resulting contract has implementation tasks
+- Every applicable invariant has enforcement in at least one task
+- No circular dependencies in task graph
+- Every task has a commit message, acceptance criteria, and revert strategy
+- All task IDs follow format
+- Critical path identified
+</Step>
+
+</Steps>
+
+## What this stage produces
+
+The task generator generates:
+
+- **Per-FASE task files** at `task/TASK-FASE-{N}.md` with:
+  - Summary metrics (total tasks, parallelizable count, tasks per phase)
+  - Traceability table (spec reference → task coverage)
+  - Tasks organized by internal phase (setup, foundation, domain, contract, integration, test, verification)
+  - Each task with: ID, description, file path, commit message, acceptance criteria, refs, revert strategy, review checklist
+  - Task dependency graph
+  - Critical path
+  - Parallel execution plan
+
+- **Global task index** at `task/TASK-INDEX.md` with:
+  - Summary by FASE (tasks, parallelizable count, status)
+  - Flat list of all tasks across all FASEs
+  - Traceability matrix (spec → tasks)
+
+- **Implementation order** at `task/TASK-ORDER.md` with:
+  - FASE dependency graph
+  - Recommended implementation sequence (waves)
+  - Cross-FASE dependencies
+  - MVP strategy (minimum FASEs for deployable product)
+  - Incremental delivery checkpoints
+
+## Real example
+
+```markdown
+## Phase 2: Foundation
+
+**Purpose:** Shared infrastructure blocking all subsequent phases.
+**Checkpoint:** Foundation services pass smoke tests.
+
+- [ ] TASK-F0-003 [P] Create auth middleware | `src/middleware/auth.ts`
+  - **Commit:** `feat(auth): add JWT authentication middleware`
+  - **Acceptance:**
+    - Extracts user_id, org_id, role from JWT token
+    - Returns 401 when token is missing
+    - Returns 401 when token is expired
+    - Enforces tenant isolation (INV-SYS-001)
+  - **Refs:** FASE-0, UC-002, ADR-003, INV-SYS-001, INV-SYS-003
+  - **Revert:** SAFE — endpoints work without auth (less secure)
+  - **Review:**
+    - [ ] Token validation follows ADR-003
+    - [ ] 401 response includes WWW-Authenticate header
+    - [ ] Tenant isolation maintained (INV-SYS-001)
+    - [ ] No PII in logs
+
+- [ ] TASK-F0-004 [P] Create rate limiting middleware | `src/middleware/rate-limiter.ts`
+  - **Commit:** `feat(auth): add rate limiting middleware`
+  - **Acceptance:**
+    - Burst limit: 100 req/min/session (ADR-025)
+    - Sustained limit: 1000 req/h/user (ADR-025)
+    - Returns 429 with Retry-After header (RN-289)
+    - Uses Cloudflare KV for counter storage (ADR-036)
+  - **Refs:** FASE-0, ADR-025, INV-SEC-003, REQ-NFR-042
+  - **Revert:** SAFE — endpoints work without rate limiting (less secure)
+  - **Review:**
+    - [ ] Limits match ADR-025 values exactly
+    - [ ] 429 response includes Retry-After header
+    - [ ] KV namespace configured
+    - [ ] Tenant isolation maintained (INV-SYS-001)
+
+- [ ] TASK-F0-005 Create health endpoint | `src/routes/health.ts`
+  - **Commit:** `feat(system): add health check endpoint`
+  - **Acceptance:**
+    - GET /health returns 200 with {status, timestamp}
+    - No authentication required
+    - Response time < 50ms
+  - **Refs:** FASE-0, UC-001, contracts/API-system.md
+  - **Revert:** SAFE — only affects monitoring
+  - **Review:**
+    - [ ] Endpoint registered in router
+    - [ ] Response schema matches contract
+    - [ ] No auth middleware applied
+  - **blocked-by:** TASK-F0-003, TASK-F0-004
+```
+
+## Pipeline integration
+
+This skill is **Step 5** of the SDD pipeline:
+
+```
+plan-architect → plan/
+        ↓
+task-generator → task/ (THIS SKILL)
+        ↓
+task-implementer → src/, tests/
+```
+
+**Input**: `plan/fases/FASE-*.md`, `plan/PLAN-FASE-*.md`, `plan/ARCHITECTURE.md`, `plan/PLAN.md`
+
+**Output**: `task/TASK-FASE-{N}.md`, `task/TASK-INDEX.md`, `task/TASK-ORDER.md`
+
+**Next step**: Run task-implementer to implement code from task documents one task at a time

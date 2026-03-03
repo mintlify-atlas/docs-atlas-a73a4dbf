@@ -1,0 +1,152 @@
+---
+title: Requirements engineer
+description: Professional requirements engineering assistant based on SWEBOK v4 that helps gather, write, and audit requirements
+---
+
+The requirements engineer is the first stage in the SDD pipeline, responsible for eliciting, writing, and auditing software requirements following IEEE SWEBOK v4 standards.
+
+## Purpose
+
+This skill helps you:
+- Gather and discover requirements from stakeholders
+- Write requirements in multiple formats (user stories, use cases, BDD scenarios)
+- Audit existing requirements for quality issues
+- Manage requirements changes and traceability
+
+## Modes of operation
+
+The skill operates in three distinct modes based on your intent:
+
+### Elicit requirements
+
+Use this mode when you need help gathering or creating requirements for a project. The skill guides you through stakeholder identification, elicitation techniques, and requirement categorization.
+
+For each requirement surfaced, it applies the 5-Whys technique to ensure it represents the true need rather than a premature solution. Requirements are categorized as functional (policies/processes) or nonfunctional (technology constraints/quality of service).
+
+### Audit requirements
+
+Use this mode when you have existing requirements that need quality assessment. The skill evaluates each requirement against individual checklists for ambiguity, testability, atomicity, necessity, and completeness.
+
+The audit produces a report with severity levels:
+- **FAIL**: must fix before proceeding
+- **WARN**: should fix to improve quality
+- **PASS**: meets quality standards
+
+For each issue found, you receive a specific, actionable recommendation with a rewritten version when possible.
+
+### Specify/format requirements
+
+Use this mode when you need help writing requirements in a specific format or converting between formats.
+
+Available formats include:
+- **User Story**: `As a [role] I want [capability] so that [benefit]`
+- **BDD Scenario**: `Given [context], when [stimulus], then [outcome]`
+- **Use Case**: structured template with triggering events, preconditions, postconditions, and flow descriptions
+- **Actor-Action**: `[Triggering event], [Actor] shall [Action] [Condition]`
+- **Shall Statement**: `The system shall [behavior]`
+
+## EARS syntax for SDD pipeline
+
+When operating within the SDD pipeline, the skill uses EARS (Easy Approach to Requirements Syntax) as the primary format:
+
+| Pattern | Template | Example |
+|---------|----------|----------|
+| Ubiquitous | `THE <system> SHALL <behavior>` | THE system SHALL store all data encrypted at rest |
+| Event-driven | `WHEN <trigger> THE <system> SHALL <behavior>` | WHEN a user submits login credentials THE system SHALL validate them within 2 seconds |
+| State-driven | `WHILE <state> THE <system> SHALL <behavior>` | WHILE the system is in maintenance mode THE system SHALL reject all write operations |
+| Unwanted | `IF <condition> THEN THE <system> SHALL <behavior>` | IF the database connection fails THEN THE system SHALL retry 3 times with exponential backoff |
+| Optional | `WHERE <feature> THE <system> SHALL <behavior>` | WHERE multi-tenancy is enabled THE system SHALL isolate tenant data |
+| Complex | `WHILE <state> WHEN <trigger> THE <system> SHALL <behavior>` | WHILE authenticated WHEN session expires THE system SHALL redirect to login |
+
+This ensures compatibility with downstream skills like specifications-engineer and spec-auditor.
+
+## Workflow
+
+<Steps>
+
+<Step title="Understand project context">
+The skill asks about the problem being solved, stakeholders involved, and existing constraints to understand the project context.
+</Step>
+
+<Step title="Identify stakeholders">
+Guides you through identifying all stakeholder groups who have requirements for the system.
+</Step>
+
+<Step title="Select elicitation techniques">
+Helps choose appropriate techniques for gathering requirements based on stakeholder types and project characteristics.
+</Step>
+
+<Step title="Apply 5-Whys">
+For each requirement surfaced, applies the 5-Whys technique to ensure it represents the true need rather than a premature solution.
+</Step>
+
+<Step title="Categorize requirements">
+Classifies each requirement as functional (policies/processes) or nonfunctional (technology constraints/quality of service) using the Perfect Technology Filter.
+</Step>
+
+<Step title="Write in appropriate format">
+Writes requirements using the appropriate specification format (EARS syntax for SDD pipeline integration).
+</Step>
+
+<Step title="Track attributes">
+Tracks additional attributes for each requirement: source, priority, rationale, acceptance criteria.
+</Step>
+
+</Steps>
+
+## What this stage produces
+
+The requirements engineer generates a structured requirements document at `requirements/REQUIREMENTS.md` with:
+
+- **Functional requirements**: Each with unique ID (REQ-F-NNN), EARS statement, priority, source, rationale, and acceptance criteria in BDD format
+- **Nonfunctional requirements**: Each with category (Performance, Security, Scalability, Availability, Usability), quantified metrics, and measurable acceptance criteria
+- **Constraints**: Technical, business, or regulatory constraints that limit design choices
+- **Traceability table**: Summary of all requirements with their types, priorities, sources, and acceptance criteria status
+
+Every requirement gets a unique ID with prefix `REQ-F-` (functional), `REQ-NF-` (nonfunctional), or `REQ-C-` (constraint).
+
+## Key principles
+
+### The perfect technology filter
+
+Separate functional from nonfunctional: functional requirements would still exist even if infinite computing resources were available. Everything else is nonfunctional.
+
+### Requirement quality gates
+
+Every requirement must be: unambiguous, testable, atomic, binding, stakeholder-aligned. If not, the skill flags and fixes it.
+
+### Forbidden words
+
+The skill flags vague terms like "fast", "user-friendly", "efficient", "flexible", "robust", "easy", "intuitive", "seamless", "adequate", "reasonable", "appropriate", "etc.", "and/or", "if applicable", "as needed", "simple", "quickly".
+
+### Kano-aware prioritization
+
+Considers both satisfaction from having a feature and dissatisfaction from lacking it. A missing basic feature causes more damage than a missing delighter.
+
+## Real example
+
+```markdown
+### REQ-F-001: User authentication
+- **Statement:** WHEN a user submits login credentials THE system SHALL validate them within 2 seconds
+- **Category:** Functional
+- **Priority:** Must have
+- **Source:** Security team, stakeholder workshop 2024-01-15
+- **Rationale:** Users need secure access to their accounts without excessive wait times
+- **Acceptance criteria:**
+  - GIVEN valid credentials WHEN user submits login THEN system responds within 2 seconds with success
+  - GIVEN invalid credentials WHEN user submits login THEN system responds within 2 seconds with error message
+  - GIVEN account is locked WHEN user submits login THEN system responds with locked account message
+- **Dependencies:** None
+```
+
+## Pipeline integration
+
+This skill is **Step 1** of the SDD pipeline:
+
+```
+requirements-engineer → requirements/REQUIREMENTS.md
+        ↓
+specifications-engineer → spec/
+```
+
+After generating `requirements/REQUIREMENTS.md`, the next step is to run specifications-engineer to transform these requirements into formal technical specifications.

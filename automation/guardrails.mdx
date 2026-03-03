@@ -1,0 +1,320 @@
+---
+title: Guardrails
+description: Automated guardrails that maintain pipeline integrity, enforce traceability, and prevent common mistakes
+---
+
+# Guardrails
+
+The SDD Plugin runs automated guardrails every session — no manual setup required. These guardrails maintain pipeline integrity, enforce the SDD Constitution, and help you avoid common mistakes.
+
+<Info>
+Guardrails consist of **4 hooks** that run automatically and **8 agents** that can be invoked on demand or delegated by Claude.
+</Info>
+
+## Overview
+
+The SDD guardrail system has two layers:
+
+1. **Hooks** — Automated checks that run at specific points in your workflow
+2. **Agents** — Specialized validators that analyze pipeline state and artifacts
+
+Together, they ensure:
+- Pipeline state stays synchronized
+- Upstream artifacts remain immutable during downstream execution
+- Traceability chain stays intact
+- Constitution rules are followed
+- Drift between specs and code is detected
+
+## How guardrails work
+
+### Hooks (H1-H4)
+
+Hooks are **lightweight, fast checks** that run automatically:
+
+| Hook | When it runs | What it does | Time |
+|------|-------------|--------------|------|
+| **H1** | Session start | Injects pipeline status into context | 10s |
+| **H2** | Before Edit/Write | Blocks writes to upstream artifacts | 5s |
+| **H3** | After Write | Auto-updates pipeline-state.json | 10s |
+| **H4** | Session end | Reserved for future consistency checks | 5s |
+
+Hooks are:
+- **Stateless** — No memory between runs
+- **Idempotent** — Safe to run multiple times
+- **Fast** — Complete in seconds
+
+### Agents (A1-A8)
+
+Agents are **deeper, analytical tools** that can be invoked when needed:
+
+| Agent | Role | Model |
+|-------|------|-------|
+| **A1** | Constitution enforcer | Haiku |
+| **A2** | Cross-auditor (skill consistency) | Sonnet |
+| **A3** | Context keeper (informal notes) | Haiku |
+| **A4** | Requirements watcher (change detection) | Haiku |
+| **A5** | Spec compliance checker | Sonnet |
+| **A6** | Test coverage monitor | Haiku |
+| **A7** | Traceability validator (suspect links) | Haiku |
+| **A8** | Pipeline health monitor | Haiku |
+
+Agents are:
+- **Stateful** (some) — Can use project memory for delta reporting
+- **Analytical** — Produce detailed reports
+- **Delegated or direct** — Run automatically by Claude or invoked by you
+
+## Key guardrail scenarios
+
+### 1. Preventing upstream contamination
+
+**Problem:** You're implementing code but accidentally modify a spec file, breaking traceability.
+
+**Guardrail:** **H2 (Upstream Guard)** blocks the write before it happens:
+
+```
+SDD Art. 4 Violation: Stage 'task-implementer' cannot modify upstream artifact 'spec/use-cases/UC-003.md'.
+Upstream artifacts are immutable during downstream execution.
+Complete the current stage first, or use req-change for controlled modifications.
+```
+
+### 2. Detecting requirement changes
+
+**Problem:** Someone modified requirements, but you don't know which ones changed or what downstream artifacts are affected.
+
+**Guardrail:** **A4 (Requirements Watcher)** diffs current requirements against the baseline:
+
+```
+### Summary
+- New requirements: 3
+- Modified requirements: 2
+- Removed requirements: 0
+
+### Recommended Actions
+1. Run `/sdd:req-change` for each new/modified requirement
+2. Run `/sdd:dashboard` to update the baseline
+```
+
+### 3. Verifying spec-code alignment
+
+**Problem:** You implemented features but aren't sure if they match the specs.
+
+**Guardrail:** **A5 (Spec Compliance Checker)** cross-references implementation against specifications:
+
+```
+### Summary
+| Metric | Count | Percentage |
+|--------|-------|------------|
+| Fully Implemented | 42 | 84% |
+| Not Implemented | 5 | 10% |
+| Deviated | 3 | 6% |
+
+### Deviations
+| API ID | Spec Endpoint | Impl Endpoint | Status |
+|--------|---------------|---------------|--------|
+| API-007 | POST /auth/login | POST /api/login | DEVIATED |
+```
+
+### 4. Finding broken traceability links
+
+**Problem:** You changed several files, and now you're worried about broken references.
+
+**Guardrail:** **A7 (Traceability Validator)** detects suspect and broken links:
+
+```
+### Summary
+| Status | Count | Percentage |
+|--------|-------|------------|
+| Validated | 187 | 85% |
+| Suspect | 28 | 13% |
+| Broken | 5 | 2% |
+
+### Broken Links
+| Reference | Referenced In | File:Line |
+|-----------|---------------|-----------|-------|
+| UC-009 | API-012 | spec/api/API-012.md:15 |
+```
+
+### 5. Assessing pipeline health
+
+**Problem:** You want a quick overview of how healthy the pipeline is.
+
+**Guardrail:** **A8 (Pipeline Health Monitor)** calculates a composite health score:
+
+```
+### Health Score: 78/100 B
+
+[███████████████░░░░░] 78/100
+
+### Top 3 Actions to Improve Score
+1. Fix 1 stale stage (spec-auditor) → +6 points
+2. Write BDD scenarios for 10 Must Have REQs → +4 points
+3. Fix 2 broken references → +4 points
+```
+
+## The SDD Constitution
+
+All guardrails enforce the **11 articles of the SDD Constitution**:
+
+| Article | Principle |
+|---------|----------|
+| **Art. 1** | Spec is source of truth — code derives from specifications |
+| **Art. 2** | Traceability chain must be maintained |
+| **Art. 3** | Clarification before assumption — never guess |
+| **Art. 4** | Upstream immutability — downstream cannot modify upstream |
+| **Art. 5** | Atomic reversibility — each task = 1 commit |
+| **Art. 6** | Baseline auditing — only report new findings |
+| **Art. 7** | Conventional Commits with `Refs:` and `Task:` trailers |
+| **Art. 8** | Pipeline state integrity — `pipeline-state.json` is authoritative |
+| **Art. 9** | Separation of concerns — each skill owns its directory |
+| **Art. 10** | Change through process — use `req-change` for all requirement modifications |
+| **Art. 11** | Formal over informal — document decisions in ADRs |
+
+<Tip>
+Use **A1 (Constitution Enforcer)** to validate any operation against all 11 articles.
+</Tip>
+
+## Guardrail configuration
+
+Guardrails are pre-configured and require **no setup**. However, you can customize behavior:
+
+### Disabling hooks (not recommended)
+
+Hooks are defined in `hooks/hooks.json`. To disable a hook, remove its entry. However, this is **strongly discouraged** as it removes critical safety checks.
+
+### Adjusting timeouts
+
+Each hook has a timeout (5-10 seconds). You can adjust these in `hooks/hooks.json`:
+
+```json
+{
+  "matcher": "Edit|Write",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/sdd-upstream-guard.sh",
+      "timeout": 5000  // milliseconds
+    }
+  ]
+}
+```
+
+### Invoking agents manually
+
+You can invoke any agent directly by describing what you want:
+
+```
+Check constitution compliance for my changes to spec/api/
+```
+
+```
+Calculate test coverage and show me which Must Have requirements lack tests
+```
+
+```
+Give me a pipeline health report
+```
+
+Claude will delegate to the appropriate agent.
+
+## Guardrail philosophy
+
+### Prevention over detection
+
+Guardrails **prevent mistakes before they happen** rather than detecting them afterward:
+- H2 blocks upstream writes **before** they occur
+- H1 injects context **before** you make decisions
+- H3 updates state **immediately** after writes
+
+### Fast feedback
+
+Guardrails provide **instant feedback**:
+- Hooks complete in 5-10 seconds
+- Agents produce reports in under a minute
+- No waiting for CI/CD to find issues
+
+### Auditable and transparent
+
+All guardrail actions are:
+- Logged in hook output
+- Visible in agent reports
+- Traceable via pipeline-state.json updates
+
+### Non-intrusive
+
+Guardrails operate **silently when everything is correct**:
+- H1 only shows status, doesn't block
+- H2 only denies prohibited operations
+- H3 runs asynchronously in the background
+- Agents only run when invoked or delegated
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Let hooks run — don't bypass them">
+    Hooks are designed to be fast and unobtrusive. Disabling them removes critical safety checks. If a hook is blocking you, it's usually because of a real issue that needs fixing.
+  </Accordion>
+
+  <Accordion title="Run health checks regularly">
+    Invoke **A8 (Pipeline Health Monitor)** at the start of each work session to get a quick assessment of pipeline state and prioritize your work.
+  </Accordion>
+
+  <Accordion title="Review suspect links before release">
+    Use **A7 (Traceability Validator)** before releases to ensure that recent file changes haven't broken traceability relationships.
+  </Accordion>
+
+  <Accordion title="Check spec compliance after implementation">
+    Run **A5 (Spec Compliance Checker)** after implementing features to verify that code aligns with specifications.
+  </Accordion>
+
+  <Accordion title="Monitor test coverage continuously">
+    Use **A6 (Test Coverage Monitor)** to track which requirements lack test coverage, especially Must Have requirements.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### Hook timeouts
+
+**Problem:** A hook times out (>10 seconds).
+
+**Solution:**
+- Check that `pipeline-state.json` is valid JSON
+- Ensure project paths don't contain unusual characters
+- Verify that `jq` or `node` is available on your system
+
+### False positives from H2 (Upstream Guard)
+
+**Problem:** H2 blocks a write that should be allowed.
+
+**Solution:**
+- Verify that no pipeline stage is marked as "running" in `pipeline-state.json`
+- If you need to modify upstream artifacts, first complete the current stage or use `/sdd:req-change`
+- For infrastructure files (`.claude/`, `changes/`), ensure they match the exception patterns
+
+### Agent reports missing data
+
+**Problem:** An agent reports "No baseline exists" or "File not found".
+
+**Solution:**
+- Run `/sdd:dashboard` to generate the traceability graph baseline
+- Ensure pipeline stages have been run at least once
+- Check that artifact directories exist (`requirements/`, `spec/`, etc.)
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Hooks" icon="hook" href="/automation/hooks">
+    Detailed reference for all 4 hooks
+  </Card>
+  <Card title="Agents" icon="robot" href="/automation/agents">
+    Detailed reference for all 8 agents
+  </Card>
+  <Card title="Pipeline stages" icon="list-check" href="/concepts/pipeline-overview">
+    Learn about the 7-stage pipeline
+  </Card>
+  <Card title="Constitution" icon="scale-balanced" href="/automation/guardrails#the-sdd-constitution">
+    Read the 11 articles of the SDD Constitution
+  </Card>
+</CardGroup>

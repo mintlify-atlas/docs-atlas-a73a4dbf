@@ -1,0 +1,301 @@
+---
+title: sdd_trace
+description: Trace the complete traceability chain for an artifact
+---
+
+## Overview
+
+Trace the complete traceability chain for an artifact: REQ → UC → WF → API → BDD → INV → ADR → TASK → COMMIT → CODE → TEST. Identifies breaks in the chain and reports completeness status.
+
+This tool validates that an artifact has proper end-to-end traceability from requirements through implementation to testing, following the expected SDD pipeline progression.
+
+## Parameters
+
+<ParamField path="artifact_id" type="string" required>
+  The artifact ID to trace (e.g. `REQ-AUTH-001`, `UC-003`)
+</ParamField>
+
+## Response
+
+<ResponseField name="artifact" type="object">
+  The root artifact being traced
+  <ResponseField name="id" type="string">
+    Artifact ID
+  </ResponseField>
+  <ResponseField name="type" type="string">
+    Artifact type
+  </ResponseField>
+  <ResponseField name="title" type="string">
+    Artifact title
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="status" type="enum">
+  Overall traceability status:
+  - `COMPLETE` - No breaks in the chain
+  - `PARTIAL` - 1-2 breaks in expected links
+  - `FRAGMENTED` - 3 or more breaks
+</ResponseField>
+
+<ResponseField name="chainLength" type="number">
+  Number of levels present in the chain
+</ResponseField>
+
+<ResponseField name="totalArtifactsInChain" type="number">
+  Total number of artifacts connected to the root
+</ResponseField>
+
+<ResponseField name="chain" type="array">
+  Traceability chain organized by level
+  <ResponseField name="level" type="string">
+    Chain level: `REQ`, `UC`, `WF`, `API`, `BDD`, `INV`, `ADR`, `TASK`, `COMMIT`, `CODE`, `TEST`
+  </ResponseField>
+  <ResponseField name="artifacts" type="array">
+    Artifacts at this level
+    <ResponseField name="id" type="string">
+      Artifact ID (or code/test reference identifier)
+    </ResponseField>
+    <ResponseField name="title" type="string">
+      Artifact title or symbol name
+    </ResponseField>
+    <ResponseField name="file" type="string">
+      Source file path
+    </ResponseField>
+    <ResponseField name="relationship" type="string" optional>
+      Relationship type connecting to this artifact
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="breaks" type="string[]">
+  Identified chain breaks (missing links)
+  Examples:
+  - `"Missing UC link upstream of REQ"`
+  - `"Missing BDD link downstream of UC"`
+  - `"Missing CODE link downstream of TASK"`
+</ResponseField>
+
+<ResponseField name="typesCovered" type="string[]">
+  List of artifact types present in the chain
+</ResponseField>
+
+<ResponseField name="typesMissing" type="string[]">
+  List of artifact types missing from the chain
+</ResponseField>
+
+## Chain order
+
+The expected traceability progression:
+
+1. **REQ** - Requirements
+2. **UC** - Use Cases
+3. **WF** - Workflows
+4. **API** - API Specifications
+5. **BDD** - BDD Scenarios
+6. **INV** - Invariants
+7. **ADR** - Architecture Decision Records
+8. **TASK** - Tasks
+9. **COMMIT** - Git Commits
+10. **CODE** - Code References
+11. **TEST** - Test References
+
+The tool traces both upstream (dependencies) and downstream (dependents) from your starting artifact.
+
+## Examples
+
+### Trace a requirement end-to-end
+
+```json
+{
+  "artifact_id": "REQ-AUTH-001"
+}
+```
+
+Example response showing complete chain:
+
+```json
+{
+  "artifact": {
+    "id": "REQ-AUTH-001",
+    "type": "REQ",
+    "title": "User Authentication"
+  },
+  "status": "COMPLETE",
+  "chainLength": 7,
+  "totalArtifactsInChain": 15,
+  "chain": [
+    {
+      "level": "REQ",
+      "artifacts": [
+        {
+          "id": "REQ-AUTH-001",
+          "title": "User Authentication",
+          "file": "docs/requirements/auth.md",
+          "relationship": "self"
+        }
+      ]
+    },
+    {
+      "level": "UC",
+      "artifacts": [
+        {
+          "id": "UC-LOGIN-001",
+          "title": "User Login Flow",
+          "file": "docs/use-cases/login.md",
+          "relationship": "implements"
+        }
+      ]
+    },
+    {
+      "level": "BDD",
+      "artifacts": [
+        {
+          "id": "BDD-AUTH-001",
+          "title": "Login Success Scenario",
+          "file": "tests/features/login.feature",
+          "relationship": "verifies"
+        }
+      ]
+    },
+    {
+      "level": "TASK",
+      "artifacts": [
+        {
+          "id": "TASK-F01-003",
+          "title": "Implement JWT authentication",
+          "file": "docs/tasks/sprint-01.md",
+          "relationship": "decomposes"
+        }
+      ]
+    },
+    {
+      "level": "CODE",
+      "artifacts": [
+        {
+          "id": "authenticateUser@src/auth/service.ts:45",
+          "title": "authenticateUser (function)",
+          "file": "src/auth/service.ts"
+        },
+        {
+          "id": "validateToken@src/auth/jwt.ts:12",
+          "title": "validateToken (function)",
+          "file": "src/auth/jwt.ts"
+        }
+      ]
+    },
+    {
+      "level": "TEST",
+      "artifacts": [
+        {
+          "id": "should authenticate valid user@tests/auth.test.ts:25",
+          "title": "should authenticate valid user",
+          "file": "tests/auth.test.ts"
+        }
+      ]
+    },
+    {
+      "level": "COMMIT",
+      "artifacts": [
+        {
+          "id": "a1b2c3d",
+          "title": "feat: implement JWT authentication",
+          "file": "TASK-F01-003"
+        }
+      ]
+    }
+  ],
+  "breaks": [],
+  "typesCovered": ["REQ", "UC", "BDD", "TASK", "CODE", "TEST", "COMMIT"],
+  "typesMissing": ["WF", "API", "INV", "ADR"]
+}
+```
+
+### Trace a use case
+
+```json
+{
+  "artifact_id": "UC-LOGIN-003"
+}
+```
+
+### Trace a task to verify completion
+
+```json
+{
+  "artifact_id": "TASK-F02-015"
+}
+```
+
+## Understanding chain breaks
+
+The tool identifies missing links in the expected chain:
+
+### Critical breaks
+
+These indicate serious traceability gaps:
+
+- **Missing UC** - Requirement has no implementing use case
+- **Missing BDD** - No verification scenario exists
+- **Missing CODE** - No implementation found
+- **Missing TEST** - No test coverage
+
+### Optional levels
+
+Some levels are optional depending on your artifact type:
+
+- **WF** (Workflow) - Not all use cases need explicit workflows
+- **API** - Only needed for API-centric features
+- **INV** (Invariants) - System-level constraints
+- **ADR** - Only needed for significant architectural decisions
+
+## TypeScript types
+
+```typescript
+interface TraceArgs {
+  artifact_id: string;
+}
+
+type ChainLevel = 
+  | "REQ" | "UC" | "WF" | "API" | "BDD" 
+  | "INV" | "ADR" | "TASK" | "COMMIT" 
+  | "CODE" | "TEST";
+
+const CHAIN_ORDER: readonly ChainLevel[] = [
+  "REQ", "UC", "WF", "API", "BDD", 
+  "INV", "ADR", "TASK", "COMMIT", 
+  "CODE", "TEST"
+];
+
+interface ChainLink {
+  level: string;
+  artifacts: Array<{
+    id: string;
+    title: string;
+    file: string;
+    relationship?: string;
+  }>;
+}
+
+type TraceStatus = "COMPLETE" | "PARTIAL" | "FRAGMENTED";
+```
+
+## How it works
+
+1. **Bidirectional traversal**: Starting from your artifact, the tool traverses both upstream (dependencies) and downstream (dependents) relationships
+
+2. **Chain assembly**: All connected artifacts are organized by their type level according to the expected progression
+
+3. **Virtual levels**: CODE, TEST, and COMMIT references are included as virtual chain levels, extracted from artifact metadata
+
+4. **Break detection**: The tool compares the found chain against the expected progression and identifies missing critical links
+
+5. **Status assessment**:
+   - `COMPLETE` - All expected links present
+   - `PARTIAL` - 1-2 breaks (usually fixable)
+   - `FRAGMENTED` - 3+ breaks (needs significant work)
+
+## See also
+
+- [sdd_context](/api/mcp/sdd-context) - Get detailed context to fix breaks
+- [sdd_coverage](/api/mcp/sdd-coverage) - Analyze coverage across domains
+- [sdd_impact](/api/mcp/sdd-impact) - Understand impact of adding missing links

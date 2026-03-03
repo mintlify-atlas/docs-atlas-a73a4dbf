@@ -1,0 +1,154 @@
+---
+title: sdd_query
+description: Search SDD artifacts by text, ID, type, or domain
+---
+
+## Overview
+
+Search SDD artifacts by text, ID, type, or domain. Returns matching artifacts with relevance scores. Use to find requirements, use cases, tasks, or any pipeline artifact.
+
+The query tool uses a scoring algorithm that prioritizes exact ID matches, followed by partial ID matches, title matches, file path matches, code references, test references, and category matches.
+
+## Parameters
+
+<ParamField path="query" type="string" required>
+  Search text — matches against artifact ID, title, file path, and code/test refs
+</ParamField>
+
+<ParamField path="type" type="string">
+  Filter by artifact type: `REQ`, `UC`, `WF`, `API`, `BDD`, `INV`, `ADR`, `NFR`, `RN`, `FASE`, `TASK`
+</ParamField>
+
+<ParamField path="domain" type="string">
+  Filter by business domain (e.g. 'Security & Auth', 'Frontend & UI')
+</ParamField>
+
+<ParamField path="limit" type="number" default="20">
+  Max results to return
+</ParamField>
+
+## Response
+
+<ResponseField name="query" type="string">
+  The search query that was executed
+</ResponseField>
+
+<ResponseField name="filters" type="object">
+  Applied filters
+  <ResponseField name="type" type="string | null">
+    Type filter if applied
+  </ResponseField>
+  <ResponseField name="domain" type="string | null">
+    Domain filter if applied
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="matches" type="number">
+  Number of matching artifacts returned
+</ResponseField>
+
+<ResponseField name="totalCandidates" type="number">
+  Total number of artifacts searched
+</ResponseField>
+
+<ResponseField name="results" type="array">
+  Array of matching artifacts, sorted by relevance score
+  <ResponseField name="id" type="string">
+    Artifact ID
+  </ResponseField>
+  <ResponseField name="type" type="string">
+    Artifact type (REQ, UC, BDD, etc.)
+  </ResponseField>
+  <ResponseField name="title" type="string">
+    Artifact title
+  </ResponseField>
+  <ResponseField name="file" type="string">
+    Source file path
+  </ResponseField>
+  <ResponseField name="score" type="number">
+    Relevance score (higher is better)
+  </ResponseField>
+  <ResponseField name="matchReasons" type="string[]">
+    Reasons for the match (e.g. "exact ID match", "title match", "code ref: function in file.ts")
+  </ResponseField>
+  <ResponseField name="hasCode" type="boolean">
+    Whether artifact has code references
+  </ResponseField>
+  <ResponseField name="hasTests" type="boolean">
+    Whether artifact has test references
+  </ResponseField>
+  <ResponseField name="hasCommits" type="boolean">
+    Whether artifact has commit references
+  </ResponseField>
+</ResponseField>
+
+## Scoring algorithm
+
+The tool uses a weighted scoring system:
+
+- **Exact ID match**: 100 points
+- **Partial ID match**: 60 points
+- **Title match**: 40 points
+- **Code reference match**: 30 points
+- **Test reference match**: 25 points
+- **File path match**: 20 points
+- **Category match**: 15 points
+
+## Examples
+
+### Search for authentication requirements
+
+```json
+{
+  "query": "authentication",
+  "type": "REQ"
+}
+```
+
+### Find a specific artifact by ID
+
+```json
+{
+  "query": "REQ-AUTH-001"
+}
+```
+
+### Search within a business domain
+
+```json
+{
+  "query": "user login",
+  "domain": "Security & Auth",
+  "limit": 10
+}
+```
+
+### Find artifacts referencing specific code
+
+```json
+{
+  "query": "authenticateUser"
+}
+```
+
+## TypeScript types
+
+```typescript
+interface QueryArgs {
+  query: string;
+  type?: string;
+  domain?: string;
+  limit?: number;
+}
+
+interface ScoredArtifact {
+  artifact: Artifact;
+  score: number;
+  matchReasons: string[];
+}
+```
+
+## See also
+
+- [sdd_context](/api/mcp/sdd-context) - Get complete details for a specific artifact
+- [sdd_coverage](/api/mcp/sdd-coverage) - Analyze coverage gaps across the pipeline

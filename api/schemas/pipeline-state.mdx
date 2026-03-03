@@ -1,0 +1,157 @@
+---
+title: "Pipeline state"
+description: "Schema for pipeline-state.json that tracks SDD pipeline execution status"
+---
+
+## Overview
+
+The `pipeline-state.json` file tracks the execution status of all stages in the SDD pipeline. It is created by the `setup` skill and automatically updated by the `state-updater` hook (H3) after each skill execution.
+
+## Location
+
+Project root: `pipeline-state.json`
+
+## Schema version
+
+**Current:** v2.0 (introduced in SDD Plugin v2.0.0)
+
+## Root fields
+
+<ResponseField name="currentStage" type="string" required>
+  The active pipeline stage. Typically the next stage that should be executed.
+  
+  Valid values:
+  - `"requirements-engineer"`
+  - `"specifications-engineer"`
+  - `"spec-auditor"`
+  - `"test-planner"`
+  - `"plan-architect"`
+  - `"task-generator"`
+  - `"task-implementer"`
+</ResponseField>
+
+<ResponseField name="lastUpdated" type="string" required>
+  ISO-8601 timestamp of the last pipeline state modification.
+  
+  Example: `"2026-03-01T15:30:00.000Z"`
+</ResponseField>
+
+<ResponseField name="stages" type="object" required>
+  Map of stage names to their execution status. Each key is a stage identifier.
+  
+  <Expandable title="Stage object">
+    <ResponseField name="status" type="enum" required>
+      Current status of the stage:
+      - `"pending"` - Not yet executed
+      - `"running"` - Currently executing
+      - `"done"` - Completed successfully
+      - `"stale"` - Completed but inputs have changed
+      - `"error"` - Failed with errors
+    </ResponseField>
+    
+    <ResponseField name="outputHash" type="string | null" required>
+      SHA-256 hash of the stage's output artifacts. Used to detect staleness. `null` if stage has never run.
+    </ResponseField>
+    
+    <ResponseField name="lastRun" type="string | null" required>
+      ISO-8601 timestamp of the last successful execution. `null` if stage has never run.
+    </ResponseField>
+    
+    <ResponseField name="staleReason" type="string | null">
+      Human-readable explanation when status is `"stale"`. Example: `"requirements/ modified after last run"`. `null` for other statuses.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example
+
+```json
+{
+  "currentStage": "task-generator",
+  "lastUpdated": "2026-03-01T15:30:00.000Z",
+  "stages": {
+    "requirements-engineer": {
+      "status": "done",
+      "outputHash": "a1b2c3d4e5f6",
+      "lastRun": "2026-02-25T10:00:00.000Z",
+      "staleReason": null
+    },
+    "specifications-engineer": {
+      "status": "done",
+      "outputHash": "f6e5d4c3b2a1",
+      "lastRun": "2026-02-25T14:00:00.000Z",
+      "staleReason": null
+    },
+    "spec-auditor": {
+      "status": "done",
+      "outputHash": "9f8e7d6c5b4a",
+      "lastRun": "2026-02-26T09:00:00.000Z",
+      "staleReason": null
+    },
+    "test-planner": {
+      "status": "done",
+      "outputHash": "3a2b1c0d9e8f",
+      "lastRun": "2026-02-26T11:00:00.000Z",
+      "staleReason": null
+    },
+    "plan-architect": {
+      "status": "done",
+      "outputHash": "7f6e5d4c3b2a",
+      "lastRun": "2026-02-26T15:00:00.000Z",
+      "staleReason": null
+    },
+    "task-generator": {
+      "status": "running",
+      "outputHash": null,
+      "lastRun": null,
+      "staleReason": null
+    },
+    "task-implementer": {
+      "status": "pending",
+      "outputHash": null,
+      "lastRun": null,
+      "staleReason": null
+    }
+  }
+}
+```
+
+## Usage
+
+### Initialization
+
+Created by `/sdd:setup` with all stages set to `"pending"`:
+
+```bash
+/sdd:setup
+```
+
+### Automatic updates
+
+The `state-updater` hook (H3) automatically updates the pipeline state after each skill execution:
+
+1. Sets the completed stage to `"done"`
+2. Updates `outputHash` based on generated artifacts
+3. Advances `currentStage` to the next pipeline stage
+4. Updates `lastUpdated` timestamp
+
+### Manual queries
+
+Check current pipeline status:
+
+```bash
+/sdd:pipeline-status
+```
+
+## Constraints
+
+- **One pipeline per project**: Only one `pipeline-state.json` should exist in the project root
+- **Never delete manually**: The pipeline state is authoritative for upstream guards (H2)
+- **Hash stability**: The `outputHash` is generated from file contents, not timestamps
+- **Staleness detection**: Stages become `"stale"` when their input artifacts change
+
+## Related
+
+- **Skills**: `/sdd:setup`, `/sdd:pipeline-status`
+- **Hooks**: H3 (state-updater), H2 (upstream-guard)
+- **MCP resources**: `sdd://pipeline/status`, `sdd://pipeline/stages`

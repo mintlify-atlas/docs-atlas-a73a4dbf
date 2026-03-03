@@ -1,0 +1,178 @@
+---
+title: Overview of 5 tools
+description: Query, trace, analyze impact, check coverage, and get full context for any artifact
+---
+
+The MCP server exposes 5 tools for interacting with the traceability graph. All tools return JSON and include next-step hints.
+
+## sdd_query
+
+Search artifacts by text, ID, type, or domain. Returns matching artifacts with relevance scores.
+
+<ParamField path="query" type="string" required>
+  Search text — matches against artifact ID, title, file path, and code/test refs
+</ParamField>
+
+<ParamField path="type" type="string">
+  Filter by artifact type: REQ, UC, WF, API, BDD, INV, ADR, NFR, RN, FASE, TASK
+</ParamField>
+
+<ParamField path="domain" type="string">
+  Filter by business domain (e.g. 'Security & Auth', 'Frontend & UI')
+</ParamField>
+
+<ParamField path="limit" type="number" default="20">
+  Max results to return
+</ParamField>
+
+### Example
+
+```json
+{
+  "query": "authentication",
+  "type": "REQ",
+  "limit": 10
+}
+```
+
+Returns artifacts ranked by relevance score (exact ID match = 100, partial ID = 60, title match = 40, code ref = 30).
+
+## sdd_trace
+
+Trace the complete traceability chain for an artifact: REQ → UC → WF → API → BDD → INV → ADR → TASK → COMMIT → CODE → TEST. Identifies breaks in the chain and reports completeness status.
+
+<ParamField path="artifact_id" type="string" required>
+  The artifact ID to trace (e.g. REQ-AUTH-001, UC-003)
+</ParamField>
+
+### Example
+
+```json
+{
+  "artifact_id": "REQ-AUTH-001"
+}
+```
+
+Returns a chain organized by type level, with status:
+
+- **COMPLETE**: No breaks in expected chain
+- **PARTIAL**: 1-2 missing links
+- **FRAGMENTED**: 3+ missing links
+
+## sdd_impact
+
+Analyze blast radius of changing an artifact. Uses BFS by depth to classify impact.
+
+<ParamField path="artifact_id" type="string" required>
+  The artifact ID to analyze (e.g. REQ-AUTH-001, UC-003)
+</ParamField>
+
+<ParamField path="direction" type="string" required>
+  Direction to traverse:
+  - `upstream` — what does this depend on
+  - `downstream` — what depends on this
+</ParamField>
+
+<ParamField path="maxDepth" type="number" default="3">
+  Maximum traversal depth
+</ParamField>
+
+### Impact classification by depth
+
+- **Depth 1**: WILL_BREAK — direct dependents
+- **Depth 2**: LIKELY_AFFECTED — indirect dependents
+- **Depth 3**: MAY_NEED_REVIEW — transitive dependents
+
+### Risk levels
+
+- **HIGH**: 5+ depth-1 artifacts OR 20+ total affected
+- **MEDIUM**: 2-5 depth-1 artifacts OR 10-20 total affected
+- **LOW**: &lt;2 depth-1 artifacts OR &lt;10 total affected
+
+### Code intelligence enrichment
+
+When code intelligence is available (via `/sdd:code-index`), the tool includes:
+
+- Direct symbols linked to the artifact
+- Transitive callers from the call graph
+- Total call chain depth
+
+## sdd_coverage
+
+Analyze traceability coverage gaps grouped by business domain and technical layer. Identifies uncovered requirements and top priority gaps.
+
+<ParamField path="domain" type="string">
+  Filter by business domain (e.g. 'Security & Auth')
+</ParamField>
+
+<ParamField path="layer" type="string">
+  Filter by technical layer: Infrastructure, Backend, Frontend, Integration/Deployment
+</ParamField>
+
+### Coverage criteria
+
+For each REQ, checks for:
+
+- **UC link**: Use case implements the requirement
+- **BDD link**: BDD scenario verifies the requirement
+- **Code refs**: Implementation symbols
+- **Test refs**: Test cases
+
+### Coverage status
+
+- **Covered**: All 4 criteria met (0 missing)
+- **Partial**: 1-3 criteria missing
+- **Uncovered**: All 4 criteria missing
+
+### Code intelligence enrichment
+
+When available, includes:
+
+- Total symbols in the codebase
+- Symbols with explicit artifact annotations
+- Symbols with inferred references
+- Annotated and total coverage percentages
+
+## sdd_context
+
+Get a 360-degree view of an artifact: its definition, all upstream/downstream connections, code references, test references, commit references, and coverage gaps. **Essential before modifying any artifact.**
+
+<ParamField path="artifact_id" type="string" required>
+  The artifact ID (e.g. REQ-AUTH-001, UC-003, TASK-F01-003)
+</ParamField>
+
+### Example
+
+```json
+{
+  "artifact_id": "REQ-AUTH-001"
+}
+```
+
+### Coverage status classifications
+
+- **Complete**: Has UC + BDD + code + tests
+- **In Progress**: Has UC + (code OR tests)
+- **Specified**: Has UC only
+- **Not Started**: No UC link
+
+### Gap detection for REQ artifacts
+
+The tool identifies specific gaps:
+
+- **ORPHAN**: No relationships found
+- **MISSING_UC**: No use case implements this requirement
+- **MISSING_BDD**: No BDD scenario verifies this requirement
+- **MISSING_TASK**: No task decomposes this requirement
+- **MISSING_CODE**: No code references found
+- **MISSING_TESTS**: No test references found
+- **MISSING_COMMITS**: No commit references found
+
+### Code intelligence enrichment
+
+When available, includes:
+
+- Symbols linked to the artifact (explicit + inferred)
+- Symbol type, file path, line range
+- Callers and callees from the call graph
+- Associated processes (if the artifact is part of a workflow)

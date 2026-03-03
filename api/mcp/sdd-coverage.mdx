@@ -1,0 +1,236 @@
+---
+title: sdd_coverage
+description: Analyze traceability coverage gaps grouped by domain and layer
+---
+
+## Overview
+
+Analyze traceability coverage gaps grouped by business domain and technical layer. Identifies uncovered requirements and top priority gaps. Use to assess pipeline completeness.
+
+This tool provides a high-level overview of traceability coverage across your entire SDD pipeline, helping you identify which domains or layers need attention.
+
+## Parameters
+
+<ParamField path="domain" type="string" optional>
+  Filter by business domain (e.g. 'Security & Auth')
+</ParamField>
+
+<ParamField path="layer" type="string" optional>
+  Filter by technical layer: `Infrastructure`, `Backend`, `Frontend`, `Integration/Deployment`
+</ParamField>
+
+## Response
+
+<ResponseField name="filters" type="object">
+  Applied filters
+  <ResponseField name="domain" type="string | null">
+    Domain filter if applied
+  </ResponseField>
+  <ResponseField name="layer" type="string | null">
+    Layer filter if applied
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="totalReqs" type="number">
+  Total number of requirements analyzed
+</ResponseField>
+
+<ResponseField name="overallCoverage" type="object">
+  Overall traceability coverage statistics from graph
+</ResponseField>
+
+<ResponseField name="byDomain" type="array">
+  Coverage breakdown by business domain
+  <ResponseField name="domain" type="string">
+    Business domain name
+  </ResponseField>
+  <ResponseField name="total" type="number">
+    Total requirements in this domain
+  </ResponseField>
+  <ResponseField name="covered" type="number">
+    Requirements with complete coverage (UC + BDD + Code + Tests)
+  </ResponseField>
+  <ResponseField name="partial" type="number">
+    Requirements with partial coverage
+  </ResponseField>
+  <ResponseField name="uncovered" type="number">
+    Requirements with no coverage
+  </ResponseField>
+  <ResponseField name="coveragePercent" type="number">
+    Percentage of fully covered requirements
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="byLayer" type="array">
+  Coverage breakdown by technical layer
+  <ResponseField name="layer" type="string">
+    Technical layer name
+  </ResponseField>
+  <ResponseField name="total" type="number">
+    Total requirements in this layer
+  </ResponseField>
+  <ResponseField name="covered" type="number">
+    Requirements with complete coverage
+  </ResponseField>
+  <ResponseField name="partial" type="number">
+    Requirements with partial coverage
+  </ResponseField>
+  <ResponseField name="uncovered" type="number">
+    Requirements with no coverage
+  </ResponseField>
+  <ResponseField name="coveragePercent" type="number">
+    Percentage of fully covered requirements
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="uncovered" type="array">
+  Up to 20 requirements with no coverage
+  <ResponseField name="id" type="string">
+    Requirement ID
+  </ResponseField>
+  <ResponseField name="title" type="string">
+    Requirement title
+  </ResponseField>
+  <ResponseField name="missingLinks" type="string[]">
+    List of missing coverage types: `UC`, `BDD`, `Code`, `Tests`
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="topGaps" type="array">
+  Up to 15 requirements closest to complete (sorted by fewest missing links)
+  <ResponseField name="id" type="string">
+    Requirement ID
+  </ResponseField>
+  <ResponseField name="title" type="string">
+    Requirement title
+  </ResponseField>
+  <ResponseField name="missingLinks" type="string[]">
+    List of missing coverage types
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="codeIntelligence" type="object" optional>
+  Code intelligence coverage metrics (when available)
+  <ResponseField name="totalSymbols" type="number">
+    Total code symbols analyzed
+  </ResponseField>
+  <ResponseField name="annotated" type="number">
+    Symbols with explicit artifact references
+  </ResponseField>
+  <ResponseField name="inferred" type="number">
+    Symbols with inferred artifact references
+  </ResponseField>
+  <ResponseField name="uncoveredSymbols" type="number">
+    Symbols without any artifact references
+  </ResponseField>
+  <ResponseField name="annotatedPercentage" type="number">
+    Percentage of explicitly annotated symbols
+  </ResponseField>
+  <ResponseField name="totalCoveredPercentage" type="number">
+    Percentage of symbols with any coverage (annotated + inferred)
+  </ResponseField>
+</ResponseField>
+
+## Coverage levels
+
+- **Covered**: Requirements with UC + BDD + Code + Tests
+- **Partial**: Requirements missing 1-3 coverage types
+- **Uncovered**: Requirements missing all 4 coverage types
+
+## Examples
+
+### Analyze overall coverage
+
+```json
+{}
+```
+
+### Check coverage for a specific domain
+
+```json
+{
+  "domain": "Security & Auth"
+}
+```
+
+### Analyze backend layer coverage
+
+```json
+{
+  "layer": "Backend"
+}
+```
+
+### Focus on specific domain and layer
+
+```json
+{
+  "domain": "User Management",
+  "layer": "Frontend"
+}
+```
+
+## TypeScript types
+
+```typescript
+interface CoverageArgs {
+  domain?: string;
+  layer?: string;
+}
+
+interface CoverageDetail {
+  id: string;
+  title: string;
+  missingLinks: string[];
+}
+
+interface DomainCoverage {
+  domain: string;
+  total: number;
+  covered: number;
+  partial: number;
+  uncovered: number;
+  coveragePercent: number;
+}
+
+interface LayerCoverage {
+  layer: string;
+  total: number;
+  covered: number;
+  partial: number;
+  uncovered: number;
+  coveragePercent: number;
+}
+```
+
+## Understanding the results
+
+### Top gaps
+
+The `topGaps` array contains requirements that are closest to complete, sorted by the number of missing links. These are your best candidates for quick wins:
+
+- Requirements with 1 missing link: Just need one more piece to be complete
+- Requirements with 2 missing links: Close to completion, good targets for sprint planning
+
+### Uncovered requirements
+
+The `uncovered` array lists requirements with no coverage at all. These should be prioritized for:
+
+1. Creating use cases (UC)
+2. Writing BDD scenarios
+3. Implementing code
+4. Adding tests
+
+### Code intelligence metrics
+
+When code intelligence is enabled, you get additional metrics about symbol-level coverage:
+
+- **Annotated symbols**: Have explicit `@artifact` annotations
+- **Inferred symbols**: Automatically linked based on naming patterns
+- **Uncovered symbols**: No artifact linkage at all
+
+## See also
+
+- [sdd_context](/api/mcp/sdd-context) - Get detailed context for specific gaps
+- [sdd_query](/api/mcp/sdd-query) - Search for artifacts to address gaps
+- [sdd_trace](/api/mcp/sdd-trace) - Verify traceability chains

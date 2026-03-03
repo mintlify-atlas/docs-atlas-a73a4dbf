@@ -1,0 +1,191 @@
+---
+title: Session summary
+description: Summarize SDD session decisions, categorize formal vs informal context, and update project memory
+---
+
+The **Session Summary** reviews the current session, categorizes all decisions and context, and helps you preserve important information for future sessions.
+
+## When to use
+
+Invoke session summary when you need to:
+- Review what was accomplished during the current session
+- Identify decisions that belong in formal artifacts (ADRs, requirements, specs)
+- Capture informal context (preferences, deferred choices, stakeholder input)
+- Track open questions for follow-up
+- Generate a recommendation list for formalizing undocumented decisions
+- Update project memory with informal context
+
+## Invocation
+
+```bash
+/sdd:session-summary
+```
+
+<Note>
+  This is typically invoked at the end of a session, or when asked to "summarize progress" or "what did we accomplish?"
+</Note>
+
+## How it works
+
+### Step 1: Session scan
+
+Reviews the conversation history for this session and identifies:
+
+1. **Pipeline actions**: Which SDD skills were invoked, what stages were completed/started
+2. **Formal decisions**: Decisions that belong in formal artifacts (ADRs, requirements, specs)
+3. **Informal decisions**: Preferences, deferred choices, stakeholder comments that don't belong in formal artifacts but should be remembered
+4. **Open questions**: Questions raised but not resolved during the session
+5. **Artifacts created/modified**: List of files created or modified with brief descriptions
+
+### Step 2: Categorize decisions
+
+For each decision found, classifies it:
+
+| Category | Where it belongs | Action |
+|----------|------------------|--------|
+| Architecture decision | `spec/adr/ADR-NNN.md` | Flag if no ADR exists |
+| Requirement change | `requirements/REQUIREMENTS.md` via `req-change` | Flag if not formalized |
+| Spec clarification | Relevant `spec/*.md` file | Flag if not applied |
+| Implementation preference | Project memory (`.claude/` or MEMORY.md) | Offer to record |
+| Deferred decision | Project memory with "DEFERRED" tag | Offer to record |
+| Stakeholder input | Project memory with source attribution | Offer to record |
+
+### Step 3: Pipeline progress delta
+
+Compares the pipeline state at session start (from H1 context if available) with current state:
+
+```markdown
+## Pipeline Progress This Session
+
+| Stage | Before | After | Change |
+|-------|--------|-------|--------|
+| spec-auditor | stale | done | Re-audited |
+| test-planner | pending | running | Started |
+```
+
+### Step 4: Generate summary
+
+Outputs a comprehensive session summary:
+
+```markdown
+## SDD Session Summary — 2026-03-03
+
+### Pipeline Progress
+[delta table from Step 3]
+
+### Formal Decisions (in artifacts)
+1. ADR-005: Chose PostgreSQL over MongoDB (spec/adr/ADR-005.md)
+2. REQ-012 modified: Added rate limiting requirement
+
+### Informal Context (not in artifacts)
+1. User prefers React over Vue for frontend (DEFERRED — no spec yet)
+2. Stakeholder mentioned Q3 deadline for MVP
+
+### Unformalised Decisions (should be in artifacts)
+1. ⚠ Decision to use JWT auth discussed but no ADR created
+2. ⚠ Performance threshold of 200ms mentioned but not in NFR
+
+### Open Questions
+1. Database hosting provider not decided
+2. CI/CD pipeline choice deferred
+
+### Artifacts Modified
+- `spec/contracts.md` — Added API-015 endpoint
+- `spec/adr/ADR-005.md` — New ADR for database choice
+- `requirements/REQUIREMENTS.md` — Updated REQ-012
+
+### Recommended Next Steps
+1. Create ADR for JWT auth decision
+2. Add 200ms threshold to NFR-003
+3. Continue with `test-planner` (next pending stage)
+```
+
+### Step 5: Offer memory update
+
+Asks the user if they want to update project memory (`.claude/` MEMORY.md or agent memory) with the informal context identified.
+
+**Only updates if the user confirms.**
+
+## What gets captured
+
+### Formal decisions
+
+- Architecture decisions (should be ADRs)
+- Requirement additions/modifications (should be in REQUIREMENTS.md)
+- Spec clarifications (should be in spec/ files)
+- Design patterns chosen
+- Technology selections
+
+### Informal context
+
+- Implementation preferences ("I prefer X over Y")
+- Stakeholder input ("Marketing wants this by Q3")
+- Deferred decisions ("We'll decide on the database later")
+- Team conventions ("We always use camelCase for API params")
+- Project constraints ("Budget is limited for external services")
+
+### Open questions
+
+- Technical questions without resolution
+- Decisions explicitly deferred
+- Research needed before deciding
+- Stakeholder clarification needed
+
+## Example use cases
+
+### End of work session
+
+```bash
+# At the end of a multi-hour session:
+/sdd:session-summary
+
+# Review output, then update memory:
+"Yes, update project memory with the informal context"
+```
+
+### After requirements workshop
+
+```bash
+# After discussing requirements with stakeholders:
+/sdd:session-summary
+
+# Identifies unformalised decisions:
+"Create ADR for JWT auth and add performance threshold to NFR"
+```
+
+### Debugging what was done
+
+```bash
+# When you return to a project after time away:
+/sdd:session-summary
+
+# Shows what was accomplished in the last session:
+"Oh right, we added the rate limiting requirement and started test planning"
+```
+
+## Constraints
+
+- **Do NOT modify formal SDD artifacts**: requirements, spec, plan, task
+- **Only modify memory/context files with user approval**
+- **Be honest about what was NOT accomplished** during the session
+- **Include timestamps** where relevant
+- **Preserve decision context**: why the decision was made, not just what was decided
+
+## Output files
+
+Session summary produces no output files by default. It only outputs text.
+
+**If user confirms memory update**, it may write to:
+- `.claude/MEMORY.md` (if using Claude memory feature)
+- Project-specific memory file (if configured)
+
+## Related skills
+
+<CardGroup cols={2}>
+  <Card title="Pipeline Status" icon="list-check" href="/utilities/pipeline-status">
+    Current pipeline state (not session-specific)
+  </Card>
+  <Card title="Requirements Change" icon="pen-to-square" href="/utilities/req-change">
+    Formalize requirement changes identified
+  </Card>
+</CardGroup>

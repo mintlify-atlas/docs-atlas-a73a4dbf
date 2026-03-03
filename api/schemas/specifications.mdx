@@ -1,0 +1,508 @@
+---
+title: "Specifications"
+description: "Format for specification artifacts including domain model, use cases, workflows, contracts, NFRs, and ADRs"
+---
+
+## Overview
+
+Specifications in the SDD framework bridge the gap between "what the system does" (requirements) and "how to build it" (implementation). They are stored in the `spec/` directory with a structured organization.
+
+## Directory structure
+
+```
+spec/
+├── 00-OVERVIEW.md                # System overview and context
+├── 01-SYSTEM-CONTEXT.md          # Bounded contexts, actors, boundaries
+├── CLARIFICATIONS.md             # Business rules (RN-xxx)
+├── domain/                       # Domain model
+│   ├── 01-GLOSSARY.md           # Ubiquitous language
+│   ├── 02-ENTITIES.md           # Domain entities
+│   ├── 03-VALUE-OBJECTS.md      # Value objects
+│   ├── 04-STATES.md             # State machines
+│   └── 05-INVARIANTS.md         # Domain invariants
+├── use-cases/                    # Use case specifications
+│   ├── UC-001-upload-pdf.md
+│   └── UC-002-analyze-cv.md
+├── workflows/                    # Multi-UC orchestrations
+│   ├── WF-001-full-cv-pipeline.md
+│   └── WF-002-job-matching.md
+├── contracts/                    # API and event contracts
+│   ├── API-pdf-reader.md
+│   ├── EVENTS-domain.md
+│   └── ERROR-CODES.md
+├── tests/                        # BDD acceptance tests
+│   ├── BDD-001-pdf-upload.md
+│   └── BDD-002-cv-extraction.md
+├── nfr/                          # Non-functional requirements
+│   ├── PERFORMANCE.md
+│   ├── SECURITY.md
+│   └── LIMITS.md
+└── adr/                          # Architecture Decision Records
+    ├── ADR-001-typescript.md
+    └── ADR-002-cloudflare-workers.md
+```
+
+## Artifact formats
+
+### Domain model
+
+#### 01-GLOSSARY.md
+
+Defines the ubiquitous language for the bounded context.
+
+```markdown
+# Glossary
+
+## Terms
+
+### CV (Curriculum Vitae)
+**Definition**: A document that summarizes a person's education, work experience, skills, and achievements.
+**Synonyms**: Resume (US English)
+**Context**: Used in extraction and analysis contexts.
+
+### Extraction
+**Definition**: The process of converting unstructured PDF content into structured data.
+**Related**: PDF parsing, text recognition
+```
+
+#### 02-ENTITIES.md
+
+Defines domain entities with their fields, invariants, and lifecycle.
+
+```markdown
+# Entities
+
+## ENT-001: CVAnalysis
+
+**Description**: Represents a completed CV analysis with structured data.
+
+**Fields**:
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| id | UUID | Yes | Immutable after creation |
+| fileName | string | Yes | 1-255 chars, must end in .pdf |
+| fileSize | number | Yes | 1 ≤ size ≤ 52,428,800 bytes (50MB) |
+| status | enum | Yes | PENDING, PROCESSING, COMPLETED, FAILED |
+| uploadedAt | timestamp | Yes | ISO-8601, immutable |
+| processedAt | timestamp | No | Set when status → COMPLETED |
+
+**Invariants**:
+- INV-EXT-001: status cannot transition from COMPLETED to PENDING
+- INV-EXT-002: processedAt must be null when status is PENDING
+- INV-EXT-005: fileSize ≤ 50MB (52,428,800 bytes)
+
+**Lifecycle**:
+1. Created with status=PENDING
+2. Transitions to PROCESSING when extraction starts
+3. Transitions to COMPLETED or FAILED based on outcome
+4. No transitions allowed after COMPLETED/FAILED
+```
+
+#### 05-INVARIANTS.md
+
+Defines domain invariants that must always hold true.
+
+**ID format**: `INV-{PREFIX}-{NNN}`
+
+```markdown
+# Domain Invariants
+
+## Extraction & Processing (EXT)
+
+### INV-EXT-001: Status transition validity
+**Rule**: A CVAnalysis cannot transition from COMPLETED to PENDING.
+**Type**: State machine constraint
+**Enforcement**: Entity validation in domain layer
+**Rationale**: Completed analyses are immutable for audit trail
+
+### INV-EXT-005: File size limit
+**Rule**: fileSize ≤ 50MB (52,428,800 bytes)
+**Type**: Value constraint
+**Enforcement**: Pre-condition check before entity creation
+**Rationale**: Prevents resource exhaustion (REQ-EXT-001)
+```
+
+### Use cases
+
+Defines actor-system interactions with preconditions, postconditions, flows, and exceptions.
+
+**ID format**: `UC-{NNN}`
+
+```markdown
+# UC-001: Upload PDF for Analysis
+
+## Overview
+| Field | Value |
+|-------|-------|
+| ID | UC-001 |
+| Traces to | REQ-EXT-001, REQ-EXT-002 |
+| Primary Actor | Authenticated User |
+| Priority | Must Have |
+
+## Description
+User uploads a PDF file to initiate CV analysis.
+
+## Preconditions
+1. User is authenticated
+2. User has not exceeded quota (10 uploads per day)
+
+## Postconditions (On Success)
+1. CVAnalysis entity created with status=PENDING
+2. File stored in object storage
+3. Upload event published to processing queue
+
+## Normal Flow
+| Step | Actor | System |
+|------|-------|--------|
+| 1 | Selects PDF file from local filesystem | |
+| 2 | Clicks "Upload" button | |
+| 3 | | Validates file size ≤ 50MB (INV-EXT-005) |
+| 4 | | Validates file is valid PDF |
+| 5 | | Generates unique CVAnalysis ID |
+| 6 | | Stores file in object storage |
+| 7 | | Creates CVAnalysis entity (status=PENDING) |
+| 8 | | Publishes "cv.uploaded" event |
+| 9 | | Returns 201 Created with CVAnalysis ID |
+
+## Alternative Flows
+
+### AF1: File size exceeds limit
+**Condition**: fileSize > 50MB
+| Step | System |
+|------|--------|
+| 3a | Returns 413 Payload Too Large |
+| 3b | Error message: "File size exceeds 50MB limit" |
+
+### AF2: Invalid PDF format
+**Condition**: File has .pdf extension but invalid structure
+| Step | System |
+|------|--------|
+| 4a | Returns 400 Bad Request |
+| 4b | Error message: "Invalid PDF file" |
+
+## Business Rules
+- RN-001: Daily upload quota per user
+- INV-EXT-005: File size limit
+
+## Acceptance Criteria
+- BDD-001: PDF upload scenarios
+```
+
+### Workflows
+
+Orchestrates multiple use cases into end-to-end business processes.
+
+**ID format**: `WF-{NNN}`
+
+```markdown
+# WF-001: Full CV Analysis Pipeline
+
+## Overview
+| Field | Value |
+|-------|-------|
+| ID | WF-001 |
+| Traces to | REQ-EXT-001, REQ-CVA-015 |
+| Trigger | User initiates CV upload |
+
+## Flow Diagram
+```
+User → [UC-001: Upload PDF]
+         ↓
+       [UC-002: Extract Text]
+         ↓
+       [UC-003: Parse Structured Data]
+         ↓
+       [UC-004: Analyze Skills]
+         ↓
+       User ← [Results Page]
+```
+
+## Steps
+1. **UC-001**: User uploads PDF (synchronous)
+2. **UC-002**: System extracts text (async, 10-30s)
+3. **UC-003**: System parses sections (async, 5-10s)
+4. **UC-004**: System analyzes skills (async, 3-5s)
+5. User polls status endpoint or receives webhook notification
+
+## Exception Handling
+- If any UC fails, status → FAILED
+- Error details captured in CVAnalysis.errorMessage
+- User notified via webhook or polling reveals FAILED status
+
+## Performance Targets
+- Total pipeline: p99 < 60s (NFR-PERF-001)
+```
+
+### Contracts
+
+Defines API endpoints and event schemas.
+
+#### API contracts
+
+**ID format**: `API-{name}`
+
+```markdown
+# API-pdf-upload: POST /api/v1/pdfs
+
+## Overview
+| Field | Value |
+|-------|-------|
+| ID | API-pdf-upload |
+| Implements | UC-001 |
+| Auth | Required (Bearer token) |
+
+## Request
+
+**Method**: POST
+**Path**: `/api/v1/pdfs`
+**Content-Type**: `multipart/form-data`
+
+**Fields**:
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| file | binary | Yes | .pdf extension, ≤ 50MB |
+
+## Response (201 Created)
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "fileName": "john-doe-cv.pdf",
+  "fileSize": 2458934,
+  "status": "PENDING",
+  "uploadedAt": "2026-03-01T15:30:00.000Z",
+  "statusUrl": "/api/v1/analyses/550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+## Error Responses
+
+| Status | Code | Message | When |
+|--------|------|---------|------|
+| 400 | INVALID_FILE_TYPE | "File must be a PDF" | Non-PDF uploaded |
+| 413 | FILE_TOO_LARGE | "File size exceeds 50MB limit" | fileSize > 50MB |
+| 401 | UNAUTHORIZED | "Missing or invalid token" | No auth header |
+| 429 | QUOTA_EXCEEDED | "Daily upload limit reached" | User exceeded quota |
+
+## Rate Limits
+- 10 requests per day per user (NFR-LIMITS-001)
+```
+
+#### Event contracts
+
+```markdown
+# EVENTS-domain: Domain Events
+
+## cv.uploaded
+
+**Published by**: API-pdf-upload
+**Consumed by**: Extraction service
+
+**Schema**:
+```json
+{
+  "eventId": "uuid",
+  "eventType": "cv.uploaded",
+  "timestamp": "ISO-8601",
+  "data": {
+    "analysisId": "uuid",
+    "fileName": "string",
+    "fileSize": "number",
+    "userId": "uuid"
+  }
+}
+```
+```
+
+### Tests (BDD)
+
+Behavior-driven acceptance criteria in Given/When/Then format.
+
+**ID format**: `BDD-{NNN}`
+
+```markdown
+# BDD-001: PDF Upload Scenarios
+
+**Traces to**: UC-001, REQ-EXT-001
+
+## Scenario 1: Valid PDF upload
+
+```gherkin
+Given an authenticated user
+  And a valid PDF file of 10MB
+When the user uploads the file to POST /api/v1/pdfs
+Then the system returns 201 Created
+  And the response includes an analysisId
+  And the response status is "PENDING"
+  And a "cv.uploaded" event is published
+```
+
+## Scenario 2: File size exceeds limit
+
+```gherkin
+Given an authenticated user
+  And a PDF file of 51MB
+When the user uploads the file to POST /api/v1/pdfs
+Then the system returns 413 Payload Too Large
+  And the response includes error "File size exceeds 50MB limit"
+  And no "cv.uploaded" event is published
+```
+```
+
+### Non-functional requirements (NFR)
+
+Defines performance, security, scalability, and operational constraints.
+
+```markdown
+# PERFORMANCE.md
+
+## Response Time Targets
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| API response time (p99) | < 200ms | Server-side timing |
+| PDF upload (50MB) | < 5s | End-to-end |
+| Full analysis pipeline (p99) | < 60s | Event timestamp diff |
+
+## Throughput Targets
+
+| Metric | Target |
+|--------|--------|
+| Concurrent users | 100 |
+| Uploads per second | 10 |
+
+## Resource Limits
+
+| Resource | Limit |
+|----------|-------|
+| Worker memory | 128MB |
+| Worker CPU time | 50ms (per request) |
+```
+
+### Architecture Decision Records (ADR)
+
+Documents significant architecture decisions with context and consequences.
+
+**ID format**: `ADR-{NNN}`
+
+```markdown
+# ADR-001: Use TypeScript for Implementation
+
+**Status**: Accepted
+**Date**: 2026-02-15
+**Deciders**: Tech Lead, Backend Team
+
+## Context
+
+We need to choose a language for implementing the CV analysis backend. Options considered: TypeScript, Python, Rust.
+
+## Decision
+
+We will use **TypeScript** for all backend services.
+
+## Rationale
+
+**Pros**:
+- Strong type safety reduces runtime errors
+- Excellent IDE support (autocomplete, refactoring)
+- Large ecosystem of libraries
+- Team has 3+ years TypeScript experience
+- Cloudflare Workers natively support TypeScript
+
+**Cons**:
+- Slower than Rust for CPU-bound tasks
+- Requires compilation step
+
+**Alternatives considered**:
+- **Python**: Weaker type safety, slower startup on Workers
+- **Rust**: Steeper learning curve, longer development time
+
+## Consequences
+
+**Positive**:
+- Fewer runtime type errors
+- Faster development velocity
+- Easier onboarding for new developers
+
+**Negative**:
+- Build step adds complexity to deployment
+- May need to optimize hot paths in Rust later
+
+**Neutral**:
+- Must configure tsconfig.json for strict mode
+- Need eslint + prettier for code quality
+
+## Related
+
+- ADR-002: Cloudflare Workers platform
+- ADR-015: Zod for runtime validation
+```
+
+## Metadata fields
+
+All specification artifacts should include:
+
+<ResponseField name="ID" type="string" required>
+  Unique identifier in the appropriate format for the artifact type.
+</ResponseField>
+
+<ResponseField name="Traces to" type="array" required>
+  List of upstream artifact IDs this spec implements or derives from.
+  
+  Example: `["REQ-EXT-001", "REQ-EXT-002"]`
+</ResponseField>
+
+<ResponseField name="Priority" type="enum">
+  One of: `Must Have`, `Should Have`, `Nice to Have`. Inherited from requirements if not specified.
+</ResponseField>
+
+<ResponseField name="Status" type="enum">
+  One of: `Draft`, `Under Review`, `Approved`, `Deprecated`.
+</ResponseField>
+
+## Quality criteria
+
+### Completeness
+- All requirements have corresponding specs
+- All UCs have BDD scenarios
+- All APIs have contracts
+- All domain rules have invariants
+
+### Consistency
+- No conflicts between specs
+- Terminology matches glossary
+- Invariants enforced in UCs
+- API contracts match UC flows
+
+### Testability
+- Every UC has acceptance criteria
+- Every BDD scenario is executable
+- Every invariant has enforcement mechanism
+
+## Tools
+
+### Generation
+
+```bash
+/sdd:specifications-engineer
+```
+
+### Validation
+
+```bash
+/sdd:spec-auditor
+```
+
+### Gap analysis
+
+```bash
+/sdd:spec-auditor --mode=analyze
+```
+
+## Related
+
+- **Skills**: `/sdd:specifications-engineer`, `/sdd:spec-auditor`, `/sdd:test-planner`
+- **References**: `document-templates.md`, `specification-workflow.md`, `gap-analysis-checklist.md`
+- **Upstream**: Requirements in `requirements/`
+- **Downstream**: Plans in `plan/`, tasks in `task/`
+- **SWEBOK**: Chapter 02 (Software Design)

@@ -1,0 +1,317 @@
+---
+title: Traceability chain
+description: How the SDD plugin maintains end-to-end traceability from requirements to code and tests
+---
+
+The SDD plugin maintains full bidirectional traceability across all artifacts through an extended 11-node chain. Every piece of code traces back to a requirement, and every requirement traces forward to implementation and tests.
+
+## The extended traceability chain
+
+The SDD traceability chain connects 11 artifact types:
+
+```
+REQ → UC → WF → API → BDD → INV → ADR → TASK → COMMIT → CODE → TEST
+```
+
+### Chain nodes explained
+
+| Node | Artifact Type | Location | Example ID | Purpose |
+|------|--------------|----------|------------|----------|
+| **REQ** | Requirements | `requirements/REQUIREMENTS.md` | REQ-F-001 | Functional and nonfunctional requirements in EARS syntax |
+| **UC** | Use Cases | `spec/use-cases/UC-*.md` | UC-001 | Structured use cases with normal/exception flows |
+| **WF** | Workflows | `spec/workflows/WF-*.md` | WF-001 | Multi-step processes spanning multiple use cases |
+| **API** | API Contracts | `spec/contracts/API-*.md` | API-users | REST/GraphQL endpoint contracts |
+| **BDD** | BDD Scenarios | `spec/tests/BDD-UC-*.md` | BDD-UC-001 | Gherkin Given/When/Then test scenarios |
+| **INV** | Invariants | `spec/domain/05-INVARIANTS.md` | INV-SEC-001 | Business rules as formal invariants with validation |
+| **ADR** | Architecture Decisions | `spec/adr/ADR-*.md` | ADR-025 | Architecture Decision Records with context and consequences |
+| **TASK** | Implementation Tasks | `task/TASK-FASE-*.md` | TASK-F0-001 | Atomic tasks (1 task = 1 commit) |
+| **COMMIT** | Git Commits | Git log | abc1234 | Commits with `Refs:` and `Task:` trailers |
+| **CODE** | Source Code | `src/` | `src/auth.ts` | Implementation files with `Refs:` annotations |
+| **TEST** | Test Files | `tests/` | `tests/auth.test.ts` | Unit, integration, and E2E tests |
+
+### How links are created
+
+#### Specification chain (REQ → ADR)
+
+Links are established through **artifact IDs** embedded in markdown:
+
+```markdown
+# Use Case: UC-001 — User Login
+
+**Implements:** REQ-F-005, REQ-NF-042
+**Uses workflow:** WF-001
+**Validates with:** INV-SYS-003 (auth required)
+**Architecture:** ADR-003 (JWT tokens)
+**API:** API-auth (POST /api/v1/auth/login)
+**Tests:** BDD-UC-001
+```
+
+These references create bidirectional links that tools can traverse.
+
+#### Task chain (TASK → COMMIT)
+
+Tasks reference upstream specs and generate commits with trailers:
+
+**Task definition:**
+
+```markdown
+- [ ] TASK-F0-003 Add JWT authentication middleware
+  - **Commit:** `feat(auth): add JWT authentication middleware`
+  - **Refs:** FASE-0, UC-002, ADR-003, INV-SYS-001, INV-SYS-003
+```
+
+**Resulting commit:**
+
+```
+feat(auth): add JWT authentication middleware
+
+Implement token validation, user context extraction,
+and tenant isolation enforcement.
+
+Refs: FASE-0, UC-002, ADR-003, INV-SYS-001, INV-SYS-003
+Task: TASK-F0-003
+```
+
+After the commit is created, the SHA is captured:
+
+```bash
+COMMIT_SHA=$(git rev-parse --short HEAD)
+# Result: abc1234
+```
+
+This SHA becomes part of the traceability chain, linking the task to the actual code change.
+
+#### Implementation chain (CODE → TEST)
+
+Code and test files use **comment annotations** to reference upstream artifacts:
+
+**Source code annotation:**
+
+```typescript
+/**
+ * JWT authentication middleware
+ * @implements UC-002 User Authentication
+ * @satisfies INV-SYS-001 Tenant Isolation
+ * @satisfies INV-SYS-003 Auth Required
+ * Refs: ADR-003
+ */
+export async function authMiddleware(c: Context, next: Next) {
+  // Implementation...
+}
+```
+
+**Test annotation:**
+
+```typescript
+// Refs: UC-002, BDD-UC-002
+describe('AuthMiddleware', () => {
+  // Tests UC-002 main flow
+  it('should extract user context from valid JWT', () => {
+    // Test implementation...
+  });
+
+  // Tests UC-002 exception flow
+  it('should return 401 when token is missing', () => {
+    // Test implementation...
+  });
+});
+```
+
+These annotations enable the `/sdd:dashboard` and `/sdd:code-index` skills to build a complete graph from requirements to tests.
+
+## Traceability verification
+
+The `/sdd:traceability-check` skill verifies the chain integrity through multiple passes:
+
+### Pass 1: Defined vs referenced IDs
+
+**Collect defined IDs:**
+- Scan `requirements/REQUIREMENTS.md` for REQ-*
+- Scan `spec/use-cases/*.md` for UC-*
+- Scan `spec/workflows/*.md` for WF-*
+- Scan `spec/contracts/*.md` for API-*
+- Scan `spec/domain/05-INVARIANTS.md` for INV-*
+- Scan `spec/adr/*.md` for ADR-*
+- Scan `task/TASK-FASE-*.md` for TASK-*
+
+**Collect referenced IDs:**
+- Scan ALL files in `requirements/`, `spec/`, `test/`, `plan/`, `task/` for any ID pattern
+
+**Compute:**
+1. **Orphaned definitions** — IDs defined but never referenced (potential waste)
+2. **Broken references** — IDs referenced but never defined (missing artifacts)
+3. **Forward references** — Upstream artifacts pointing to downstream (acceptable)
+
+### Pass 2: Commit chain verification
+
+When git is available, the skill verifies the TASK → COMMIT link:
+
+```bash
+# Extract commits with trailers
+git log --all --format='%H|%h|%s|%an|%aI|%b' --grep='Refs:' | head -500
+git log --all --format='%H|%h|%s|%an|%aI|%b' --grep='Task:' | head -500
+```
+
+**Build mapping:** TASK-F0-003 → commit abc1234
+
+**Identify gaps:**
+- **Tasks without commits** — Tasks marked `[x]` but no matching commit
+- **Commits without refs** — Commits with `Task:` but no `Refs:` trailer
+- **Commits with broken refs** — `Refs:` references non-existent artifact IDs
+
+**Compute coverage:**
+```
+Commit coverage = tasks with commits / total completed tasks
+```
+
+Example: 45 completed tasks, 43 with commits → 95.6% commit coverage
+
+### Pass 3: Code & test chain verification (optional)
+
+When `/sdd:code-index` has generated `dashboard/traceability-graph.json` with `codeIntelligence` data:
+
+**Verify codeRefs:**
+- Check that referenced files exist
+- Check that symbols still exist at registered locations
+- Mark as `valid`, `stale` (moved/renamed), or `broken` (missing)
+
+**Verify testRefs:**
+- Check that test files exist
+- Check that named test blocks exist (`it("...")`, `test("...")`, `def test_...`)
+- Mark as `valid`, `stale`, or `broken`
+
+**Detect orphaned annotations:**
+- Scan `src/` for `Refs:` comments referencing non-existent artifact IDs
+- These indicate stale annotations after spec changes
+
+**Detect uncovered paths:**
+- Use call graph to find public symbols reachable from entry points
+- Identify those with NO `Refs:` annotation and no inferred refs
+- These are execution paths without SDD traceability
+
+## Traceability benefits
+
+### Impact analysis
+
+When a requirement changes, you can instantly find all affected artifacts:
+
+```
+REQ-F-005 changed → affects:
+  UC-001, UC-015 → affects:
+    WF-002 → affects:
+      API-auth, API-users → affects:
+        BDD-UC-001, BDD-UC-015 → affects:
+          TASK-F0-003, TASK-F1-012 → affects:
+            commits abc1234, def5678 → affects:
+              src/auth.ts, src/users.ts → affects:
+                tests/auth.test.ts, tests/users.test.ts
+```
+
+The `/sdd:req-change` skill uses this chain to perform **blast radius analysis** before applying changes.
+
+### Coverage verification
+
+You can verify that every requirement has implementation:
+
+```
+✓ REQ-F-001 → UC-005 → API-cv → TASK-F1-008 → commit xyz9012 → src/cv.ts → tests/cv.test.ts
+✓ REQ-F-002 → UC-007 → WF-001 → API-extraction → TASK-F1-015 → commit abc4567 → src/extraction.ts → tests/extraction.test.ts
+✗ REQ-F-003 → [NO USE CASE] — UNTRACEABLE
+```
+
+The `[NO USE CASE]` gap is flagged for resolution.
+
+### Audit compliance
+
+For regulatory audits (SOC2, ISO 27001, FDA 21 CFR Part 11), you can demonstrate:
+
+1. **Every requirement is tested** — REQ → BDD → TEST chain proves coverage
+2. **Every code change is justified** — COMMIT → TASK → UC → REQ chain shows rationale
+3. **Security controls are enforced** — INV → CODE chain shows invariant implementation
+4. **Architecture decisions are documented** — ADR → COMMIT chain shows decision enforcement
+
+### Change traceability
+
+When debugging or reviewing:
+
+**From code to requirement:**
+```typescript
+// Found this function during debugging:
+export async function validateCV(file: File): Promise<boolean> {
+  // Refs: UC-005 tells me the requirement
+}
+```
+
+Look up UC-005 → **Implements:** REQ-F-015 "System shall validate CV format"
+
+**From requirement to code:**
+```markdown
+# REQ-F-015: CV Format Validation
+WHEN a user uploads a CV file THE system SHALL validate file format and size
+```
+
+Trace forward: REQ-F-015 → UC-005 → API-cv → TASK-F1-008 → commit xyz9012 → `src/cv-validator.ts`
+
+## Traceability patterns
+
+The SDD plugin uses consistent ID patterns for machine parsing:
+
+| Pattern | Example | Regex |
+|---------|---------|-------|
+| Requirements | REQ-F-001, REQ-NF-005 | `REQ-(F|NF|C)-(\d{3})` |
+| Use Cases | UC-001 | `UC-(\d{3})` |
+| Workflows | WF-001 | `WF-(\d{3})` |
+| API Contracts | API-users, API-cv | `API-([a-z-]+)` |
+| BDD Scenarios | BDD-UC-001 | `BDD-UC-(\d{3})` |
+| Invariants | INV-SEC-001, INV-SYS-003 | `INV-([A-Z]{3})-(\d{3})` |
+| ADRs | ADR-025 | `ADR-(\d{3})` |
+| Tasks | TASK-F0-001, TASK-F3-015 | `TASK-F(\d{1,2})-(\d{3,4})` |
+| Commits | abc1234 (short SHA) | `[0-9a-f]{7}` |
+
+These patterns enable automated tooling like:
+- `/sdd:dashboard` — Visual graph of all connections
+- `/sdd:traceability-check` — Chain verification
+- `/sdd:req-change` — Impact analysis and cascade propagation
+
+## Maintaining traceability
+
+Traceability is maintained automatically through the pipeline:
+
+### At specification time
+
+`/sdd:specifications-engineer` asks: "Which requirements does this use case implement?" and embeds `**Implements:** REQ-F-005` in the generated UC file.
+
+### At planning time
+
+`/sdd:plan-architect` reads specs and propagates references into FASE files and plans.
+
+### At task generation time
+
+`/sdd:task-generator` extracts `Refs` from plans and embeds them in task definitions.
+
+### At implementation time
+
+`/sdd:task-implementer` uses the pre-generated commit message with `Refs:` trailer and captures the commit SHA.
+
+### At code time
+
+Developers (human or AI) add `Refs:` annotations in JSDoc, inline comments, or decorators when writing code.
+
+### At reconciliation time
+
+When code drifts from specs, `/sdd:reconcile` detects divergence by comparing spec-declared behavior against code-observed behavior and regenerates traceability links.
+
+<Note>
+Traceability is **bidirectional**: you can traverse the chain forward (requirement → code) or backward (code → requirement). The dashboard visualizes both directions.
+</Note>
+
+## Graceful degradation
+
+The traceability system degrades gracefully in partial pipelines:
+
+- **No git repository?** Commit chain verification is skipped
+- **No code index?** Code/test chain verification is skipped
+- **No requirements file?** Only spec-internal traceability is verified
+- **No commits yet?** Task-level traceability still works
+
+You can adopt the SDD pipeline incrementally and benefit from partial traceability immediately.

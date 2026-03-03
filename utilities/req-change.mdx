@@ -1,0 +1,320 @@
+---
+title: Requirements change
+description: Manage the full lifecycle of requirements changes with ISO 14764 maintenance classification and pipeline cascade
+---
+
+The **Requirements Change** skill manages the complete lifecycle of requirements changes: **ADD**, **MODIFY**, and **DEPRECATE** requirements, propagating changes bidirectionally through all specification documents and optionally triggering downstream pipeline re-execution.
+
+<Note>
+  **Version 2.0**: Adds ISO 14764 maintenance classification and automated pipeline cascade modes.
+</Note>
+
+## When to use
+
+Invoke requirements change when you need to:
+- Add new features or requirements to the system
+- Modify existing requirements and propagate changes through specs
+- Deprecate requirements with proper impact analysis
+- Handle corrective maintenance (bug fixes)
+- Handle adaptive maintenance (external API changes, dependency updates)
+- Handle perfective maintenance (feature enhancements)
+- Handle preventive maintenance (tech debt reduction)
+- Trigger re-planning and re-tasking after spec changes
+
+## Invocation modes
+
+```bash
+/sdd:req-change                                    # Interactive mode (describe change)
+/sdd:req-change --file changes/CHANGE-REQUEST.md   # From structured file
+/sdd:req-change --dry-run                          # Plan only, no execution
+/sdd:req-change --batch                            # Auto-apply recommended solutions
+/sdd:req-change --cascade=auto                     # Full pipeline cascade after changes
+/sdd:req-change --cascade=manual                   # (default) Advisory output only
+/sdd:req-change --cascade=dry-run                  # Preview cascade scope
+/sdd:req-change --cascade=plan-only                # Cascade through planning, not implementation
+/sdd:req-change --maintenance=TYPE                 # Pre-classify (corrective/adaptive/perfective/preventive)
+```
+
+### Cascade modes
+
+| Mode | Behavior | When to use |
+|------|----------|-------------|
+| `manual` (default) | Update `pipeline-state.json`, print recommended commands | User wants control over each step |
+| `auto` | Invoke downstream skills in sequence after changes | Full pipeline automation |
+| `dry-run` | Compute invalidation scope but change nothing | Impact preview before committing |
+| `plan-only` | Cascade through planning skills, stop before implementation | Updated plans + tasks without code changes |
+
+## ISO 14764 maintenance classification
+
+Each change is classified by maintenance category:
+
+| Classification | Sub-classification | Signal |
+|---------------|-------------------|---------|
+| ADD | Perfective | New capability |
+| ADD | Adaptive | New external integration, dependency addition |
+| MODIFY | Corrective | Bug fix, incorrect behavior |
+| MODIFY | Perfective | Feature enhancement |
+| MODIFY | Adaptive | External API change, dependency update, platform migration |
+| MODIFY | Preventive | Tech debt reduction, code health improvement |
+| DEPRECATE | Perfective | Feature simplification |
+| DEPRECATE | Adaptive | External dependency removal |
+| DEPRECATE | Preventive | Removing tech debt source |
+
+**Corrective** changes get urgency-based priority:
+
+| Urgency | Criteria | Response |
+|---------|----------|----------|
+| P0 (Critical) | Data loss risk, core feature completely broken | Immediate |
+| P1 (High) | Major feature broken, no workaround | Same day |
+| P2 (Medium) | Feature broken, workaround exists | Next sprint |
+| P3 (Low) | Minor defect, cosmetic issue | Backlog |
+
+## The 9 phases
+
+### Phase 0: Inventory & context loading
+
+**Goal**: Build complete understanding of current spec state.
+
+1. Glob all `.md` files under `spec/` — build manifest with IDs, types, versions
+2. Read `requirements/REQUIREMENTS.md` — extract all REQ IDs, categories, traceability
+3. Read `spec/domain/01-GLOSSARY.md` — load ubiquitous language (MANDATORY reference)
+4. Read `spec/CLARIFICATIONS.md` — load business rules
+5. Read `spec/CHANGELOG.md` — identify current spec version
+6. Read `audits/AUDIT-BASELINE.md` — know current audit state
+7. Read `pipeline-state.json` — load current pipeline state
+8. Scan `changes/` for existing DRAFT/REVIEWED deltas — warn if unapplied deltas exist
+9. Build internal index: REQ-ID → specs, spec → REQs, REQ dependencies, stage status
+
+**Readiness gates**:
+- G1: Specs exist → STOP if missing: "Run specifications-engineer first"
+- G2: REQUIREMENTS.md exists → STOP if missing: "Run requirements-engineer first"
+- G3: Glossary exists → STOP if missing: "Cannot proceed without ubiquitous language"
+- G4: Audit-clean (warning only) → WARN if open findings
+- G5: Pipeline state (info only) → INFO if missing
+
+### Phase 1: Change request intake & classification
+
+**Goal**: Parse, classify, and structure each change request.
+
+1. Parse user input (natural language) and/or structured file
+2. Classify each change as ADD, MODIFY, or DEPRECATE
+3. Classify by ISO 14764 maintenance category (using `--maintenance=TYPE` or auto-detect)
+4. Identify category (FUN/NFR/OPS/REG/DER), subcategory, affected REQs, priority, stability
+5. Apply SWEBOK 5-Whys technique for unclear requests
+6. Generate Change Request Summary table
+7. Present to user for confirmation
+
+### Phase 2: Impact analysis
+
+**Goal**: Identify ALL documents affected by each change.
+
+1. **Direct impact**: Documents that MUST change
+2. **Indirect impact**: Documents that SHOULD be reviewed
+3. **Trace the full chain** per affected REQ: REQ → UC → WF → API → BDD → INV → ADR → RN
+4. **Conflict detection**: Check for contradictions with existing INVs, ADRs, BDD, business rules
+5. **Complexity rating**: Low (1-3 docs), Medium (4-8), High (9-15), Very High (16+)
+6. **Generate Impact Matrix** with direct impact, indirect impact, conflicts, regression risk
+7. **Commit impact analysis** (if git available): artifact → commits → files blast radius via `git log --grep`
+8. **Code intelligence impact analysis** (if SDD MCP server available):
+   - Call `sdd_impact({ artifact_id, direction: "downstream", maxDepth: 3 })`
+   - Classify by depth: d=1 (WILL_BREAK), d=2 (LIKELY_AFFECTED), d=3 (MAY_NEED_REVIEW)
+   - Enrich Impact Matrix with symbol-level detail: symbol, file, depth, callers, risk
+   - **Fallback**: Use git-based analysis from Step 7 if MCP not available
+
+<Tip>
+  Run `/sdd:code-index` and start the SDD MCP server for symbol-level blast radius analysis.
+</Tip>
+
+### Phase 3: Clarification & decision
+
+**Goal**: Eliminate ALL ambiguities before planning changes.
+
+1. Evaluate each change against 7 SWEBOK properties (unambiguous, testable, binding, atomic, true, stakeholder vocabulary, acceptable)
+2. For each ambiguity/gap, present options with recommendation in a table format
+3. For DEPRECATE changes: ask about data/behavior migration, deprecation marking strategy
+4. For ADD changes: formulate EARS statement, draft acceptance criteria (Gherkin)
+5. For MODIFY changes: show current vs. proposed EARS statements
+6. Collect all answers
+7. Generate Clarification Log
+
+### Phase 4: Change plan generation
+
+**Goal**: Generate a complete, reviewable plan showing every change to every document with before/after.
+
+1. For ADD: generate new REQ with full template, draft new specs (UC/API/BDD/INV/ADR/RN)
+2. For MODIFY: show current (before) and proposed (after) state of every affected section
+3. For DEPRECATE:
+   - Mark REQ as deprecated with reason and date
+   - Identify all spec sections to update/remove
+   - Identify migration steps
+   - **For multi-REQ deprecations**: generate a Feature Sunset Plan (4-phase timeline)
+4. Apply Atomic Cross-Check Rule (if you modify domain model, also check value objects, states, invariants, UCs, contracts)
+5. Group changes by document for atomic execution
+6. Generate `changes/CHANGE-PLAN-{id}.md`
+
+**If `--dry-run`**: STOP HERE and present plan.
+
+### Phase 5: User review & approval
+
+**Goal**: Get explicit user approval before modifying any file.
+
+1. Present Change Plan summary
+2. Ask workflow mode: Batch (apply all) or Interactive (approve per CR)
+3. For Interactive: show full before/after, ask "Apply this change? (Yes / Modify / Skip)"
+4. For Batch: show summary, ask "Apply all N changes? (Yes / Review individually)"
+
+**Approval required before any file modification.**
+
+### Phase 6: Change execution
+
+**Goal**: Apply all approved changes atomically across all documents.
+
+**Execution order** (MANDATORY — requirements-first, then propagate to specs):
+
+```
+1. requirements/REQUIREMENTS.md (ADD/MODIFY/DEPRECATE REQs — the SOURCE of the change)
+2. domain/01-GLOSSARY.md       (new terms if needed)
+3. domain/02-ENTITIES.md       (new/modified entities)
+4. domain/03-VALUE-OBJECTS.md  (new/modified VOs)
+5. domain/04-STATES.md         (new/modified states)
+6. domain/05-INVARIANTS.md     (new INVs)
+7. use-cases/UC-*.md           (new/modified UCs)
+8. workflows/WF-*.md           (new/modified WFs)
+9. contracts/API-*.md           (new/modified contracts)
+10. contracts/EVENTS-*.md       (new/modified events)
+11. contracts/PERMISSIONS-MATRIX.md (if roles affected)
+12. tests/BDD-*.md              (new/modified BDD scenarios)
+13. tests/PROPERTIES.md         (if property tests affected)
+14. nfr/*.md                    (if NFRs affected)
+15. adr/ADR-*.md                (new ADRs for decisions)
+16. runbooks/*.md               (if operational procedures affected)
+17. CLARIFICATIONS.md           (new RNs)
+18. CHANGELOG.md                (record all changes)
+```
+
+<Note>
+  **Why requirements-first?** The requirement defines WHAT changes. Specifications define HOW it manifests. By writing the requirement first, every subsequent spec edit can reference the authoritative REQ-ID as the source of truth.
+</Note>
+
+**Git commits**: One commit per logical change group (1 CR = 1 commit unless very large):
+
+```
+feat(specs): add REQ-{SUB}-{NNN} - {brief description}
+
+Change Request: CR-{NNN}
+Type: ADD
+Documents: {comma-separated list}
+Requirements affected: REQ-{SUB}-{NNN}
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+```
+
+### Phase 7: Alignment audit
+
+**Goal**: Verify that after all changes, requirements and specifications are perfectly aligned.
+
+**8 alignment verifications** (focused mini-audit on affected documents only):
+
+| Check | Description | Severity if Fails |
+|-------|-------------|-------------------|
+| AA-01 | REQ → Spec Forward Coverage | Critical |
+| AA-02 | Spec → REQ Backward Coverage | Critical |
+| AA-03 | Traceability Chain Completeness | High |
+| AA-04 | Cross-Reference Validity | Critical |
+| AA-05 | Glossary Compliance | High |
+| AA-06 | Contradiction Check | Critical |
+| AA-07 | EARS Pattern Compliance | Medium |
+| AA-08 | Acceptance Criteria Testability | Medium |
+
+**Additional checks for DEPRECATE**:
+- AA-09: No Orphan References (no document references deprecated REQ)
+- AA-10: Dependent REQ Update (all dependent REQs updated or flagged)
+
+**If gaps detected**:
+- Auto-fixable issues (typos, broken refs): fix immediately and re-audit
+- Non-auto-fixable issues: include in Change Report as "Open Items"
+- NEVER ignore a failed alignment check
+
+### Phase 8: Change report generation
+
+**Goal**: Generate a comprehensive document that provides full context for subsequent planning, task creation, and implementation.
+
+**Output**: `changes/CHANGE-REPORT-{YYYY-MM-DD}-{short-id}.md`
+
+**Structure**:
+1. Executive Summary with Change Request Summary table
+2. Changes Applied (New REQs, Modified REQs, Deprecated REQs)
+3. New Artifacts Created (REQ, INV, ADR, RN, BDD)
+4. Impact Analysis Summary (documents modified, breaking changes, cross-reference updates)
+5. Alignment Audit Results (from Phase 7)
+6. Clarification Decisions (from Phase 3)
+7. **Context for Planning & Implementation**:
+   - Affected FASE files
+   - Architecture impact
+   - Implementation considerations (new API endpoints, DB changes, events, tests)
+   - Recommended next steps
+   - Risk assessment
+   - **Maintenance classification** (ISO 14764 category per CR)
+   - **Pipeline cascade plan** (which skills to re-run, estimated impact)
+   - Technical debt impact (if applicable)
+8. Git Commits (hash, message, files)
+9. Statistics
+
+### Phase 9: Pipeline cascade execution
+
+**Goal**: Propagate changes through the downstream pipeline.
+
+1. **Read cascade mode** from invocation flags (default: `manual`)
+2. **Compute invalidation scope**: which downstream stages need re-execution
+3. **Update `pipeline-state.json`**: mark affected stages as `"stale"`, record Change Report ID
+4. **Execute based on cascade mode**:
+
+   **If `--cascade=manual` (default)**:
+   ```
+   Pipeline Cascade Summary (MANUAL)
+   ==================================
+   Invalidated stages: 4
+   Affected FASEs:     1, 3, 5
+
+   Recommended commands:
+   > spec-auditor --focused --scope=changes/CHANGE-REPORT-{id}.md
+   > test-planner --mode=audit
+   > plan-architect --regenerate-fases --affected=1,3,5
+   > task-generator --fase=1,3,5 --incremental
+   > task-implementer --fase=1 --new-tasks-only
+   ```
+
+   **If `--cascade=dry-run`**: Print full cascade plan, do NOT update `pipeline-state.json`, exit
+
+   **If `--cascade=plan-only`**: Invoke spec-auditor (focused), test-planner (audit), plan-architect, task-generator, update pipeline state, exit (do NOT invoke task-implementer)
+
+   **If `--cascade=auto`**: Execute full pipeline sequence (spec-auditor → test-planner → plan-architect → task-generator → task-implementer), update pipeline state after each step, generate `changes/CASCADE-REPORT-{id}.md`
+
+5. **Generate cascade summary** (always, regardless of mode)
+
+## Constraints
+
+- **Requirements-first execution order**: The requirement defines the change; specs propagate it
+- **Never skip clarification**: Every ambiguity must get a question with options and recommendation
+- **Never ignore alignment failures**: Failed checks must be fixed or reported as open items
+- **Atomic document updates**: Each document gets ONE edit pass
+- **Respect ADRs and business rules**: If covered by ADR or RN, not a defect
+- **Git optional**: Commit impact analysis gracefully skips if git not available
+- **Code intelligence optional**: Symbol-level blast radius uses fallback if SDD MCP server not available
+
+## Related skills
+
+<CardGroup cols={2}>
+  <Card title="Spec Auditor" icon="magnifying-glass" href="/pipeline/spec-auditor">
+    Audit specs after requirements changes
+  </Card>
+  <Card title="Plan Architect" icon="sitemap" href="/pipeline/plan-architect">
+    Regenerate FASEs after changes
+  </Card>
+  <Card title="Task Generator" icon="list-check" href="/pipeline/task-generator">
+    Generate new tasks for changed requirements
+  </Card>
+  <Card title="Traceability Check" icon="link" href="/utilities/traceability-check">
+    Verify alignment after changes
+  </Card>
+</CardGroup>

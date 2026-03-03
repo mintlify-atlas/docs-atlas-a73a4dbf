@@ -1,0 +1,184 @@
+---
+title: Skills API overview
+description: Complete reference for the SDD Plugin skill invocation system
+---
+
+# Skills API overview
+
+The SDD Plugin provides 20 specialized skills that automate the software development lifecycle from requirements to implementation. Each skill is invoked via the `/sdd:skill-name` command and operates on a standardized artifact directory structure.
+
+## Skill categories
+
+Skills are organized into three functional categories:
+
+### Pipeline skills (7 skills)
+
+Core skills that execute sequentially to transform requirements into running code:
+
+- `requirements-engineer` — Requirements elicitation and EARS-format specification
+- `specifications-engineer` — Transform requirements into technical specifications
+- `spec-auditor` — Audit specifications for defects and inconsistencies
+- `plan-architect` — Generate FASE files and implementation plans
+- `task-generator` — Decompose plans into atomic, reversible tasks
+- `task-implementer` — Implement code from task documents with TDD
+- `test-planner` — Generate comprehensive test plans and coverage maps
+
+### Brownfield skills (4 skills)
+
+Skills for adopting SDD in existing projects with code or documentation:
+
+- `onboarding` — Diagnose project state and generate SDD adoption plan
+- `reverse-engineer` — Extract SDD artifacts from existing codebase
+- `reconcile` — Detect and resolve drift between specs and code
+- `import` — Convert external documentation (Jira, OpenAPI, CSV) to SDD format
+
+### Utility skills (9 skills)
+
+ Supporting skills for maintenance, synchronization, and observability:
+
+- `req-change` — Manage requirements changes with full pipeline cascade
+- `security-auditor` — Audit specifications for security defects
+- `traceability-check` — Verify traceability chain integrity
+- `pipeline-status` — Display current pipeline state and stage status
+- `session-summary` — Generate session activity report
+- `setup` — Initialize SDD directory structure
+- `sync-notion` — Bidirectional sync with Notion databases
+- `code-index` — Build symbol-level code intelligence graph
+- `dashboard` — Generate HTML visualization of project state
+
+## Invocation syntax
+
+All skills follow a consistent invocation pattern:
+
+```bash
+/sdd:skill-name [--flag] [--option=value] [arguments]
+```
+
+### Common flags
+
+<ParamField path="--dry-run" type="boolean">
+  Preview changes without modifying files
+</ParamField>
+
+<ParamField path="--continue" type="boolean">
+  Resume from last checkpoint
+</ParamField>
+
+<ParamField path="--scope" type="string">
+  Limit operation to specific paths or modules
+</ParamField>
+
+## Artifact structure
+
+Skills read from and write to a standardized directory structure:
+
+```
+project/
+├── requirements/          # Requirements documents (EARS format)
+├── spec/                  # Technical specifications
+│   ├── domain/           # Domain model, entities, invariants
+│   ├── use-cases/        # Use case specifications
+│   ├── workflows/        # Multi-step process flows
+│   ├── contracts/        # API contracts and events
+│   ├── tests/            # BDD scenarios and test specs
+│   ├── nfr/              # Non-functional requirements
+│   ├── adr/              # Architecture Decision Records
+│   └── runbooks/         # Operational runbooks
+├── plan/                  # Implementation plans and FASE files
+├── task/                  # Task documents for implementation
+├── audits/                # Audit reports and baselines
+├── changes/               # Change requests and reports
+├── findings/              # Code analysis findings
+├── onboarding/            # Onboarding diagnostics
+├── reconciliation/        # Drift detection reports
+└── import/                # Import reports
+```
+
+## Pipeline state
+
+The `pipeline-state.json` file tracks the status of each pipeline stage:
+
+```json
+{
+  "stages": {
+    "requirements-engineer": { "status": "done", "lastRun": "2026-03-03T10:00:00Z" },
+    "specifications-engineer": { "status": "done", "lastRun": "2026-03-03T10:15:00Z" },
+    "spec-auditor": { "status": "stale", "reason": "specs modified", "lastRun": "2026-03-02T14:00:00Z" },
+    "plan-architect": { "status": "pending" },
+    "task-generator": { "status": "pending" },
+    "task-implementer": { "status": "pending" }
+  },
+  "version": "1.0.0",
+  "lastUpdate": "2026-03-03T10:15:00Z"
+}
+```
+
+## Traceability chain
+
+Skills maintain a full traceability chain from requirements to code:
+
+```
+REQ-XXX (requirement)
+  ↓
+UC-XXX (use case)
+  ↓
+WF-XXX (workflow)
+  ↓
+API-XXX (contract)
+  ↓
+BDD-XXX (test scenario)
+  ↓
+INV-XXX-NNN (invariant)
+  ↓
+ADR-XXX (architecture decision)
+  ↓
+TASK-FN-NNN (implementation task)
+  ↓
+src/path/file.ts:line (code)
+```
+
+Each artifact includes `Refs:` annotations linking to upstream and downstream artifacts.
+
+## Error handling
+
+Skills follow a consistent error handling protocol:
+
+1. **Validation gates** — Check prerequisites before execution
+2. **Pause conditions** — Stop and ask user on ambiguities
+3. **Checkpoint recovery** — Resume from last successful phase
+4. **Atomic operations** — Changes are committed or rolled back as units
+5. **Error reports** — Detailed diagnostics with location and resolution steps
+
+## Multi-agent execution
+
+Complex skills use parallel agents for performance:
+
+```
+Main thread
+  ├─→ Agent-A (domain/)
+  ├─→ Agent-B (use-cases/)
+  ├─→ Agent-C (contracts/)
+  └─→ Agent-D (nfr/)
+      ↓
+  Consolidate results
+```
+
+Agent prefixes follow standard conventions:
+- `DOM-` → domain/
+- `UC-`, `WF-` → use-cases/, workflows/
+- `CON-` → contracts/
+- `NFR-`, `ADR-`, `TEST-`, `RUN-` → nfr/, adr/, tests/, runbooks/
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Pipeline skills" icon="arrow-progress" href="/api/skills/pipeline-skills">
+    Core sequential pipeline from requirements to code
+  </Card>
+  <Card title="Brownfield skills" icon="code-branch" href="/api/skills/brownfield-skills">
+    Adopting SDD in existing projects
+  </Card>
+  <Card title="Utility skills" icon="wrench" href="/api/skills/utility-skills">
+    Maintenance, sync, and observability
+  </Card>
+</CardGroup>

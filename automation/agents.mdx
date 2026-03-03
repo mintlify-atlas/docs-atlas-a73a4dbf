@@ -1,0 +1,401 @@
+---
+title: Agents
+description: Eight specialized agents that validate, monitor, and maintain your SDD pipeline
+---
+
+# Agents
+
+The SDD Plugin includes 8 specialized agents that work autonomously or can be invoked directly. They validate artifacts, detect drift, monitor coverage, and maintain traceability integrity.
+
+<Info>
+Agents can be delegated by Claude during skill execution or invoked directly by you when needed.
+</Info>
+
+## A1: Constitution enforcer
+
+**Model:** Haiku  
+**Tools:** Read, Grep, Glob  
+**Agent file:** `agents/constitution-enforcer.md`
+
+### Role
+
+Validates that operations on SDD pipeline artifacts comply with the **11 articles of the SDD Constitution**. Ensures that changes follow the established rules for traceability, immutability, atomic reversibility, and formal documentation.
+
+### Key articles enforced
+
+| Article | Rule |
+|---------|------|
+| Art. 1 | Spec is source of truth — code must derive from specifications |
+| Art. 2 | Traceability chain must be maintained: REQ → UC → WF → API → BDD → INV → ADR → TASK → CODE → TEST |
+| Art. 3 | Clarification before assumption — never guess, always ask |
+| Art. 4 | Upstream immutability — downstream stages cannot modify upstream artifacts |
+| Art. 5 | Atomic reversibility — each task = 1 commit with rollback strategy |
+| Art. 6 | Baseline auditing — only report new findings or regressions |
+| Art. 7 | Conventional Commits with `Refs:` and `Task:` trailers |
+| Art. 8 | Pipeline state integrity — `pipeline-state.json` is authoritative |
+| Art. 9 | Separation of concerns — each skill owns its output directory |
+| Art. 10 | Change through process — use `req-change` for all requirement modifications |
+| Art. 11 | Formal over informal — document decisions in ADRs, not casual notes |
+
+### When to use
+
+- Before writing to any pipeline artifact directory
+- When reviewing proposed changes from `req-change`
+- To validate that a skill is operating within its boundaries
+- On demand when you need constitution compliance verification
+
+### Example report
+
+```
+| Article | Status | Details |
+|---------|--------|---------|-----|
+| Art. 1 | PASS | Spec backing verified: UC-003, API-007 |
+| Art. 2 | WARN | Missing BDD reference for API-007 |
+| Art. 4 | PASS | No upstream modification detected |
+
+Verdict: WARNING (minor issues)
+```
+
+<Warning>
+The Constitution Enforcer is **read-only** — it never modifies files, only reads and reports.
+</Warning>
+
+## A2: Cross-auditor
+
+**Model:** Sonnet  
+**Tools:** Read, Grep, Glob  
+**Memory:** Project memory enabled  
+**Agent file:** `agents/cross-auditor.md`
+
+### Role
+
+Ensures consistency across all SDD skill definitions by detecting I/O contract mismatches, version drift, and stale cross-references between skills.
+
+### What it checks
+
+1. **I/O contract consistency:** Skill B's input matches Skill A's output
+2. **Cross-reference integrity:** Skill names, file references are accurate
+3. **Version consistency:** Pipeline diagrams match actual configurations
+4. **Pipeline order:** Stage order is consistent across all documentation
+5. **Constitution alignment:** Skills respect Art. 4 (immutability) and Art. 9 (separation)
+
+### When to use
+
+- After modifying any `SKILL.md` definition
+- Before releasing a new plugin version
+- When debugging unexpected skill behavior
+- As part of CI/CD for the plugin repository itself
+
+### Memory usage
+
+Stores audit results in project memory to enable **delta reporting**:
+- First run: Establishes baseline
+- Subsequent runs: Reports only NEW and REGRESSION findings
+- Tracks resolved findings to confirm fixes
+
+<Tip>
+The Cross-Auditor is ideal for plugin developers maintaining the skill ecosystem.
+</Tip>
+
+## A3: Context keeper
+
+**Model:** Haiku  
+**Tools:** Read, Grep, Glob, Write, Edit  
+**Memory:** Project memory enabled  
+**Agent file:** `agents/context-keeper.md`
+
+### Role
+
+Maintains a persistent store of **informal project context** that is important for decision-making but does NOT belong in formal SDD artifacts.
+
+### What to store
+
+| Category | Examples | Tag |
+|----------|---------|-----|
+| User preferences | "Prefers React", "Wants dark mode first" | `PREF` |
+| Deferred decisions | "Database choice postponed to Phase 2" | `DEFERRED` |
+| Stakeholder input | "PM said Q3 is hard deadline" | `STAKEHOLDER` |
+| Technical notes | "Redis cluster had issues in staging" | `TECH-NOTE` |
+| Constraints discovered | "Can't use GPL libraries per legal" | `CONSTRAINT` |
+| Session observations | "User tends to skip NFR discussion" | `OBSERVATION` |
+
+### What NOT to store
+
+**Never** stores anything that belongs in formal SDD artifacts:
+- Architecture decisions → ADRs
+- Requirements → `requirements/`
+- Specifications → `spec/`
+- Test plans → `test/`
+- Implementation plans → `plan/`
+
+<Warning>
+If you ask the Context Keeper to store something that should be formal, it will **refuse** and recommend the correct artifact type.
+</Warning>
+
+### Operations
+
+- **Store:** Add new context with appropriate tag and metadata
+- **Retrieve:** Search context store for relevant entries
+- **Archive:** Move formalized context to archive with reference to formal artifact
+
+## A4: Requirements watcher
+
+**Model:** Haiku  
+**Tools:** Read, Grep, Glob  
+**Agent file:** `agents/requirements-watcher.md`
+
+### Role
+
+Detects changes in requirements since the last dashboard generation. Compares current requirements artifacts against the traceability graph to find new, modified, or removed requirements.
+
+### Process
+
+1. **Load baseline:** Read `dashboard/traceability-graph.json` for baseline REQ set
+2. **Scan current:** Scan `requirements/` for all current REQ definitions
+3. **Diff analysis:** Identify NEW, REMOVED, MODIFIED, and UNCHANGED requirements
+4. **Impact assessment:** Flag requirements that lack downstream coverage (UC, BDD, TASK)
+5. **Report:** Generate change report with recommended actions
+
+### When to use
+
+- After modifying requirements files
+- Before running the pipeline
+- To assess the impact of requirement changes
+- When planning a `/sdd:req-change` operation
+
+### Example output
+
+```
+### Summary
+- New requirements: 5
+- Modified requirements: 2
+- Removed requirements: 1
+- Unchanged: 42
+
+### New Requirements (need downstream propagation)
+| REQ ID | Title | Has UC? | Has BDD? | Has TASK? |
+|--------|-------|---------|----------|-----------|-----|
+| REQ-045 | User logout | No | No | No |
+
+### Recommended Actions
+1. Run `/sdd:req-change` for each new/modified requirement
+2. Run `/sdd:dashboard` to update the baseline
+```
+
+## A5: Spec compliance checker
+
+**Model:** Sonnet  
+**Tools:** Read, Grep, Glob  
+**Agent file:** `agents/spec-compliance-checker.md`
+
+### Role
+
+Verifies that source code in `src/` faithfully implements what the specifications in `spec/` declare. Identifies gaps, deviations, and unspecified implementations.
+
+### What it checks
+
+| Spec type | What it verifies |
+|-----------|------------------|
+| API contracts | Endpoint paths, methods, schemas, status codes |
+| Use cases | Actor, preconditions, main flow steps, postconditions |
+| Invariants | Business rules, validation constraints |
+| BDD scenarios | Given/When/Then steps, expected behaviors |
+| NFRs | Performance limits, security requirements |
+
+### Compliance statuses
+
+- **IMPLEMENTED:** Spec artifact has matching implementation
+- **PARTIAL:** Some aspects implemented, others missing
+- **NOT IMPLEMENTED:** No matching implementation found
+- **DEVIATED:** Implementation exists but differs from spec
+- **UNSPECIFIED:** Implementation exists with no corresponding spec
+
+### When to use
+
+- After implementation phase
+- Before release or deployment
+- During code review to verify spec alignment
+- When investigating spec-code drift
+
+<Tip>
+The Spec Compliance Checker uses heuristic matching — exact names preferred, but fuzzy matching is acceptable with lower confidence.
+</Tip>
+
+## A6: Test coverage monitor
+
+**Model:** Haiku  
+**Tools:** Read, Grep, Glob  
+**Agent file:** `agents/test-coverage-monitor.md`
+
+### Role
+
+Calculates the percentage of requirements covered by BDD scenarios and test files. Reports coverage gaps and recommends which requirements need test attention.
+
+### Coverage levels
+
+| Level | Criteria |
+|-------|----------|
+| **Full** | Has BDD scenario + test file with passing reference |
+| **BDD Only** | Has BDD scenario but no test file |
+| **Test Only** | Has test file but no formal BDD scenario |
+| **None** | No BDD scenario and no test file |
+
+### When to use
+
+- Before release to assess test completeness
+- After adding new requirements
+- When planning testing efforts
+- To identify Must Have requirements without coverage
+
+### Example report
+
+```
+### Summary
+| Metric | Count | Percentage |
+|--------|-------|------------|
+| Full Coverage (BDD + Tests) | 35 | 70% |
+| BDD Only | 8 | 16% |
+| Tests Only | 3 | 6% |
+| No Coverage | 4 | 8% |
+
+### Recommended Actions
+1. Write BDD scenarios for 4 Must Have requirements without coverage (+8 points)
+2. Create test files for 8 requirements with BDD but no tests
+```
+
+## A7: Traceability validator
+
+**Model:** Haiku  
+**Tools:** Read, Grep, Glob  
+**Memory:** Project memory enabled  
+**Agent file:** `agents/traceability-validator.md`
+
+### Role
+
+Detects **suspect links** in the traceability chain using file modification timestamps. Inspired by IBM DOORS suspect link detection — when a linked artifact changes, the link becomes suspect until reviewed.
+
+### Concept: Suspect links
+
+A link between artifact A and B becomes **suspect** when:
+- The file containing A or B has been modified more recently than the last validation timestamp
+- This means the content may have changed in a way that invalidates the relationship
+
+### Process
+
+1. **Load graph:** Read `dashboard/traceability-graph.json`
+2. **Load validation state:** Read previous validation timestamps from memory
+3. **Check file mtimes:** Compare file modification times against last validation
+4. **Detect broken links:** Find references to missing artifacts and orphaned artifacts
+5. **Report:** Generate validation report with suspect, broken, and new links
+6. **Update memory:** Store current validation timestamps for next run
+
+### Link statuses
+
+- **Validated:** Unchanged since last validation
+- **Suspect:** File changed after last validation — requires review
+- **New:** Never validated before
+- **Broken:** Target artifact no longer exists
+
+### When to use
+
+- After making changes to multiple pipeline artifacts
+- Before release to ensure traceability integrity
+- When investigating broken references
+- As part of periodic pipeline health checks
+
+<Info>
+The Traceability Validator maintains validation state in project memory, enabling delta reporting across sessions.
+</Info>
+
+## A8: Pipeline health monitor
+
+**Model:** Haiku  
+**Tools:** Read, Grep, Glob  
+**Agent file:** `agents/pipeline-health-monitor.md`
+
+### Role
+
+Calculates a composite **health score (0-100)** for the SDD pipeline based on staleness, traceability coverage, reference integrity, and test coverage. Provides actionable recommendations to improve the score.
+
+### Health score components
+
+| Component | Max points | What it measures |
+|-----------|------------|------------------|
+| Staleness | 30 | Pipeline stage freshness (stages marked "done" vs "stale"/"error") |
+| Traceability coverage | 30 | Percentage of REQs with downstream coverage (UC, BDD, TASK) |
+| Reference integrity | 20 | No broken or orphaned references |
+| Test coverage | 20 | Percentage of REQs with BDD scenarios or test files |
+
+**Total: 100 points**
+
+### Grade scale
+
+| Grade | Range | Meaning |
+|-------|-------|---------|------|
+| A | 90-100 | Excellent — pipeline is healthy and well-maintained |
+| B | 75-89 | Good — minor issues to address |
+| C | 60-74 | Fair — several areas need attention |
+| D | 40-59 | Poor — significant gaps in pipeline |
+| F | 0-39 | Critical — pipeline needs major work |
+
+### When to use
+
+- At the start of a work session to get a quick health check
+- After running multiple pipeline stages
+- When planning what to work on next
+- For status reports to stakeholders
+
+### Example report
+
+```
+## Pipeline Health Report
+
+### Health Score: 82/100 B
+
+[████████████████░░░░] 82/100
+
+| Component | Score | Max | Details |
+|-----------|-------|-----|---------|------|
+| Staleness | 24 | 30 | 5 done, 1 stale, 0 error |
+| Traceability | 26 | 30 | 87% REQs with UCs |
+| Reference Integrity | 18 | 20 | 2 orphans, 1 broken ref |
+| Test Coverage | 14 | 20 | 70% REQs with tests |
+
+### Top 5 Actions to Improve Score
+
+1. Run `/sdd:spec-auditor` to fix 1 stale stage (+6 staleness points)
+2. Write BDD scenarios for 15 REQs without coverage (+6 test points)
+3. Fix 1 broken reference in spec/workflows/ (+2 integrity points)
+```
+
+---
+
+## Invoking agents
+
+Agents can be used in two ways:
+
+1. **Delegated by Claude:** During skill execution, Claude may delegate tasks to agents autonomously
+2. **Direct invocation:** You can explicitly call an agent by name when needed
+
+### Example
+
+```
+Check spec compliance for the authentication module
+```
+
+Claude will delegate to the Spec Compliance Checker (A5) to verify implementation alignment.
+
+<Tip>
+Agents are read-only by default — they analyze and report but never modify files unless explicitly designed to (like A3: Context Keeper).
+</Tip>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Hooks" icon="hook" href="/automation/hooks">
+    Learn about automated hooks
+  </Card>
+  <Card title="Guardrails" icon="shield-halved" href="/automation/guardrails">
+    Overview of automated guardrails
+  </Card>
+</CardGroup>

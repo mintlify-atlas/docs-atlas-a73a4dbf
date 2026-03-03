@@ -1,0 +1,272 @@
+---
+title: Sync Notion
+description: Bidirectional sync of SDD pipeline artifacts with Notion databases for collaborative requirements management
+---
+
+The **Sync Notion** skill synchronizes SDD pipeline artifacts bidirectionally with Notion databases, creating a navigable, relational view of the entire traceability chain in Notion for stakeholder collaboration.
+
+## When to use
+
+Use Notion sync when you need to:
+- Share SDD artifacts with stakeholders who prefer Notion
+- Enable collaborative requirements editing in Notion
+- Create a relational database view of the traceability chain
+- Pull changes made in Notion back to local markdown files
+- Maintain a single source of truth across SDD and Notion
+
+## Prerequisites
+
+You must set two environment variables:
+
+| Variable | Purpose | How to get |
+|----------|---------|------------|
+| `NOTION_API_KEY` | Notion integration API key | Create a Notion integration at [notion.so/my-integrations](https://notion.so/my-integrations) |
+| `NOTION_PARENT_PAGE_ID` | Page ID where databases will be created | Copy from Notion page URL (32-char ID) |
+
+**If either is missing, the skill will show setup instructions and stop.**
+
+<Steps>
+  <Step title="Create Notion integration">
+    Go to [notion.so/my-integrations](https://notion.so/my-integrations), create a new integration, and copy the API key.
+  </Step>
+  <Step title="Share parent page with integration">
+    In Notion, open the parent page, click "Share", and invite your integration.
+  </Step>
+  <Step title="Set environment variables">
+    ```bash
+    export NOTION_API_KEY="ntn_xxxxxxxxxxxxx"
+    export NOTION_PARENT_PAGE_ID="12345678-abcd-..."
+    ```
+  </Step>
+</Steps>
+
+## Invocation
+
+```bash
+/sdd:sync-notion              # Default: Push (Local → Notion)
+/sdd:sync-notion --mode=pull  # Pull (Notion → Local)
+/sdd:sync-notion --mode=status # Show sync state without changes
+```
+
+## Modes of operation
+
+### Mode 1: Push (Local → Notion) — Default
+
+Push all local artifacts to Notion databases.
+
+- Creates/verifies 9 Notion databases (REQ, UC, WF, API, BDD, INV, ADR, TASK, Pipeline Status)
+- Upserts all artifacts as Notion pages with properties
+- Creates Notion relations between pages (UC → REQ, BDD → UC, etc.)
+- Updates sync state (`.sdd-notion-sync.json`)
+- Idempotent: running multiple times doesn't create duplicates
+
+### Mode 2: Pull (Notion → Local)
+
+Detect changes made in Notion and apply them to local markdown files.
+
+- Queries each database for pages modified after `lastSync`
+- Compares Notion property values against local artifacts
+- Classifies changes as: `notion-ahead`, `conflict`, or `synced`
+- **Presents changes for user confirmation** before applying
+- Applies confirmed changes to local markdown files
+- Marks affected pipeline stages as `stale` in `pipeline-state.json`
+- Handles conflicts: presents both versions for user decision
+
+### Mode 3: Status
+
+Show sync state without making changes.
+
+- Last sync timestamp and direction
+- Drift detection: local changes since last push, Notion changes since last sync
+- Database integrity: missing databases, orphaned pages
+
+## How it works
+
+### Step 1: Verify authentication
+
+1. Check that `NOTION_API_KEY` and `NOTION_PARENT_PAGE_ID` are set
+2. Verify API key works via `GET /v1/users/me`
+3. If authentication fails, show setup instructions
+
+### Step 2: Load traceability graph
+
+Read `dashboard/traceability-graph.json`.
+
+- If missing: inform user to run `/sdd:dashboard` first
+- Extract all artifacts and relationships
+
+### Step 3: Load sync state
+
+Read `.sdd-notion-sync.json` from project root.
+
+- If missing: this is a fresh sync (all artifacts are `new-local`)
+- If exists: load previous database IDs and page mappings
+
+### Step 4: Create/verify databases (Push mode)
+
+For each artifact type that has artifacts, ensure a Notion database exists:
+
+1. Check if database ID from sync state is still valid via `GET /v1/databases/{id}`
+2. If missing or deleted, create new database under parent page using schema from `references/notion-schema.md`
+3. Update sync state with database IDs
+
+**Database creation order** (to set up relations correctly):
+1. Requirements DB
+2. Use Cases DB
+3. Workflows DB
+4. API Contracts DB
+5. BDD Scenarios DB
+6. Invariants DB
+7. ADR DB
+8. Tasks DB
+9. Pipeline Status DB
+
+### Step 5: Upsert artifacts (Push mode)
+
+For each artifact in the traceability graph:
+
+1. Check sync state for existing Notion page
+2. If new: CREATE page via `POST /v1/pages`
+3. If exists and local content changed (hash mismatch): UPDATE page via `PATCH /v1/pages/{id}`
+4. If exists and unchanged: SKIP
+
+**Rate limiting**: Insert 350ms delay between API calls to respect Notion's 3 req/s limit.
+
+Progress reporting:
+```
+Syncing: [████████░░░░░░░░░░░░] 120/330 REQs...
+```
+
+### Step 6: Create relations (Push mode)
+
+After all pages are created, create Notion relations:
+
+1. For each relationship in the graph, look up source and target Notion page IDs
+2. Update source page's relation property to include target
+3. Skip relations where either page doesn't exist in Notion
+
+### Step 7: Detect Notion changes (Pull mode)
+
+Query each database for pages modified after `lastSync`:
+
+1. For each changed page, compare property values against local artifact
+2. Classify changes as: `notion-ahead`, `conflict`, or `synced`
+3. Present changes to user for confirmation before applying
+
+### Step 8: Apply changes (Pull mode, with confirmation)
+
+For confirmed changes:
+
+1. Locate the local markdown file and line number
+2. Apply the change (title update, priority change, etc.)
+3. Mark affected pipeline stages as `stale` in `pipeline-state.json`
+
+**For conflicts**, present both versions and let the user decide.
+
+### Step 9: Update sync state
+
+Write updated `.sdd-notion-sync.json` with:
+- New `lastSync` timestamp
+- Updated page IDs and hashes
+- Direction of last sync
+
+### Step 10: Report summary
+
+```markdown
+## Notion Sync Complete
+
+| Metric | Value |
+|--------|-------|
+| Direction | Push / Pull |
+| Databases | 9 active |
+| Pages Created | 87 |
+| Pages Updated | 23 |
+| Pages Unchanged | 245 |
+| Relations Created | 412 |
+| Duration | 127s |
+
+Notion workspace: [View in Notion](https://notion.so/...)
+```
+
+## Notion database schema
+
+Each artifact type maps to a Notion database with specific properties:
+
+### Requirements DB
+
+- **Title**: REQ-ID
+- **Category**: Select (FUN, NFR, OPS, REG, DER)
+- **Priority**: Select (Must Have, Should Have, Could Have)
+- **EARS Statement**: Rich text
+- **Acceptance Criteria**: Rich text (Gherkin)
+- **Traceability**: Relation to Use Cases DB
+- **Status**: Formula (coverage calculation)
+
+### Use Cases DB
+
+- **Title**: UC-ID
+- **Name**: Text
+- **Actor**: Text
+- **Implements**: Relation to Requirements DB
+- **Verified By**: Relation to BDD Scenarios DB
+- **Complexity**: Select (Low, Medium, High)
+
+### Tasks DB
+
+- **Title**: TASK-ID
+- **FASE**: Number
+- **Type**: Select (setup, feature, test, refactor, doc)
+- **Status**: Checkbox (completed)
+- **Implements**: Relation to Use Cases DB
+- **Commit SHA**: Text
+- **Files Changed**: Number
+
+## Constraints
+
+- **Never store API keys**: Do not write `NOTION_API_KEY` to any file. Read from environment only.
+- **Rate limiting**: Always respect Notion's 3 req/s limit with 350ms delays.
+- **Confirmation for pulls**: Never auto-apply Notion → Local changes without user confirmation.
+- **Never auto-delete**: If an artifact is deleted in Notion, flag it for user review rather than deleting locally.
+- **Idempotent pushes**: Running push multiple times should not create duplicate pages.
+- **JSON escape**: Properly escape special characters in artifact titles when building API payloads.
+
+## Example workflows
+
+### Initial push
+
+```bash
+/sdd:dashboard          # Generate traceability graph first
+/sdd:sync-notion        # Push all artifacts to Notion
+```
+
+### Stakeholder edits in Notion
+
+```bash
+# After stakeholders edit priorities/acceptance criteria in Notion:
+/sdd:sync-notion --mode=pull   # Pull changes and apply locally
+/sdd:spec-auditor --focused    # Re-audit affected specs
+```
+
+### Regular sync cycle
+
+```bash
+# After local changes:
+/sdd:sync-notion               # Push updates to Notion
+
+# Before local changes:
+/sdd:sync-notion --mode=pull   # Pull latest from Notion
+```
+
+## Related skills
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="chart-line" href="/utilities/dashboard">
+    Generate traceability graph (prerequisite)
+  </Card>
+  <Card title="Requirements Change" icon="pen-to-square" href="/utilities/req-change">
+    Apply pulled changes systematically
+  </Card>
+  <Card title="Pipeline Status" icon="list-check" href="/utilities/pipeline-status">
+    Check what needs re-execution after pull
+  </Card>
+</CardGroup>

@@ -1,0 +1,469 @@
+---
+title: Utility skills reference
+description: Supporting skills for maintenance, synchronization, and observability
+---
+
+# Utility skills reference
+
+Utility skills provide supporting capabilities for requirements changes, security auditing, traceability verification, and project observability.
+
+---
+
+## req-change
+
+Manages requirements changes with full pipeline cascade.
+
+### Invocation
+
+```bash
+/sdd:req-change                                       # Interactive mode
+/sdd:req-change --file changes/CHANGE-REQUEST.md      # From structured file
+/sdd:req-change --dry-run                             # Plan only, no execution
+/sdd:req-change --cascade=auto                        # Full pipeline cascade
+/sdd:req-change --cascade=plan-only                   # Cascade through planning
+/sdd:req-change --maintenance=corrective              # Pre-classify by type
+```
+
+### Change types
+
+<ParamField path="ADD" type="change">
+  New capability, feature, or constraint
+  
+  **Example:** "Necesitamos soporte para bulk export de CVs"
+</ParamField>
+
+<ParamField path="MODIFY" type="change">
+  Change to existing requirement behavior, threshold, or scope
+  
+  **Example:** "El timeout de extraccion debe ser 480s en vez de 360s"
+</ParamField>
+
+<ParamField path="DEPRECATE" type="change">
+  Remove or sunset existing requirement
+  
+  **Example:** "Ya no necesitamos el matching por percentil"
+</ParamField>
+
+### Maintenance categories (ISO 14764)
+
+<ParamField path="Corrective" type="category">
+  Bug fix, incorrect behavior
+  
+  **Urgency levels:** P0 (Critical), P1 (High), P2 (Medium), P3 (Low)
+</ParamField>
+
+<ParamField path="Adaptive" type="category">
+  External API change, dependency update, platform migration
+</ParamField>
+
+<ParamField path="Perfective" type="category">
+  Feature enhancement, new capability
+</ParamField>
+
+<ParamField path="Preventive" type="category">
+  Tech debt reduction, code health improvement
+</ParamField>
+
+### Execution phases
+
+<ParamField path="Phase 0" type="phase">
+  Inventory & context loading
+  
+  Globs spec files, reads REQUIREMENTS.md, glossary, CLARIFICATIONS.md, AUDIT-BASELINE.md, pipeline-state.json. Builds traceability index.
+</ParamField>
+
+<ParamField path="Phase 1" type="phase">
+  Change request intake & classification
+  
+  Parses input, classifies by type (ADD/MODIFY/DEPRECATE), maintenance category (ISO 14764), urgency (for corrective). Applies SWEBOK 5-Whys for unclear requests.
+</ParamField>
+
+<ParamField path="Phase 2" type="phase">
+  Impact analysis
+  
+  Identifies direct impact (MUST change) and indirect impact (SHOULD review). Traces full chain per affected REQ. Detects conflicts (contradicts INVs, ADRs, BDD, RNs). Rates complexity (Low/Medium/High/Very High). Analyzes commit impact via git (if available). Enriches with SDD MCP server data (if available).
+</ParamField>
+
+<ParamField path="Phase 3" type="phase">
+  Clarification & decision
+  
+  Evaluates against 7 SWEBOK properties (Unambiguous, Testable, Binding, Atomic, True, Stakeholder vocabulary, Acceptable). Presents questions with options and recommendations. Collects answers. Generates clarification log.
+</ParamField>
+
+<ParamField path="Phase 4" type="phase">
+  Change plan generation
+  
+  For ADD: generates new REQ with full template, drafts new UC/API/BDD/INV/ADR/RN. For MODIFY: shows before/after of every affected section. For DEPRECATE: marks REQ as Deprecated, generates migration/sunset plan. Applies Atomic Cross-Check Rule. Groups changes by document.
+</ParamField>
+
+<ParamField path="Phase 5" type="phase">
+  User review & approval
+  
+  Batch mode (default with `--batch`): apply all. Interactive mode: approve/modify/reject per CR.
+</ParamField>
+
+<ParamField path="Phase 6" type="phase">
+  Change execution
+  
+  Applies changes in order: REQUIREMENTS.md first (source of change), then domain/, invariants, use-cases, workflows, contracts, tests, nfr, adr, runbooks, CLARIFICATIONS.md, CHANGELOG.md. Creates git commits.
+</ParamField>
+
+<ParamField path="Phase 7" type="phase">
+  Alignment audit
+  
+  Focused mini-audit on affected documents: REQ → Spec Forward Coverage, Spec → REQ Backward Coverage, Traceability Complete, Cross-Refs Valid, Glossary Compliance, Contradiction Check, EARS Compliance, Testability. Auto-fixes if possible.
+</ParamField>
+
+<ParamField path="Phase 8" type="phase">
+  Change report generation
+  
+  Generates comprehensive report with: executive summary, changes applied (new/modified/deprecated), new artifacts created, impact analysis, alignment audit results, clarification decisions, context for planning/implementation, recommended next steps.
+</ParamField>
+
+<ParamField path="Phase 9" type="phase">
+  Pipeline cascade execution
+  
+  Computes invalidation scope (which stages need re-run). Updates `pipeline-state.json` (marks stale). Executes based on cascade mode (manual/dry-run/plan-only/auto). Generates cascade report (if auto/plan-only).
+</ParamField>
+
+### Cascade modes
+
+<ParamField path="--cascade=manual" type="mode" default>
+  Update pipeline-state.json, print recommended commands
+</ParamField>
+
+<ParamField path="--cascade=auto" type="mode">
+  Invoke downstream skills in sequence: spec-auditor (focused), test-planner, plan-architect (regenerate FASEs), task-generator (incremental), task-implementer (new tasks only)
+</ParamField>
+
+<ParamField path="--cascade=dry-run" type="mode">
+  Compute scope, no changes to pipeline-state.json
+</ParamField>
+
+<ParamField path="--cascade=plan-only" type="mode">
+  Cascade through planning but not implementation
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="changes/CHANGE-PLAN-{id}.md" type="file">
+  Detailed change plan with before/after for every affected document
+</ParamField>
+
+<ParamField path="changes/CHANGE-REPORT-{id}.md" type="file">
+  Comprehensive change report with full context for downstream skills
+</ParamField>
+
+<ParamField path="changes/CASCADE-REPORT-{id}.md" type="file">
+  (if cascade=auto/plan-only) Execution log of cascaded skill invocations
+</ParamField>
+
+<ParamField path="requirements/REQUIREMENTS.md" type="file">
+  Updated with new/modified/deprecated requirements
+</ParamField>
+
+<ParamField path="spec/" type="directory">
+  Updated specifications reflecting requirement changes
+</ParamField>
+
+---
+
+## security-auditor
+
+Audits specifications for security defects.
+
+### Invocation
+
+```bash
+/sdd:security-auditor                                 # Full security audit
+/sdd:security-auditor --scope=auth,payment            # Scope to modules
+```
+
+### Security defect categories
+
+Detects security-specific defects beyond general spec-auditor categories.
+
+### Output artifacts
+
+<ParamField path="audits/SECURITY-AUDIT-BASELINE.md" type="file">
+  Security-specific audit report
+</ParamField>
+
+---
+
+## traceability-check
+
+Verifies traceability chain integrity.
+
+### Invocation
+
+```bash
+/sdd:traceability-check                               # Full verification
+/sdd:traceability-check --from=REQ-EXT-001            # Start from specific artifact
+```
+
+### Checks
+
+<ParamField path="Forward coverage" type="check">
+  Every REQ has at least one spec implementing it
+</ParamField>
+
+<ParamField path="Backward coverage" type="check">
+  Every spec traces back to at least one REQ
+</ParamField>
+
+<ParamField path="Chain completeness" type="check">
+  REQ → UC → WF → API → BDD → INV → ADR links all valid
+</ParamField>
+
+<ParamField path="Orphan detection" type="check">
+  No artifacts without traceability
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="audits/TRACEABILITY-REPORT.md" type="file">
+  Traceability verification report with gaps and broken links
+</ParamField>
+
+---
+
+## pipeline-status
+
+Displays current pipeline state and stage status.
+
+### Invocation
+
+```bash
+/sdd:pipeline-status                                  # Full status
+/sdd:pipeline-status --verbose                        # Detailed output
+```
+
+### Output
+
+Reads `pipeline-state.json` and displays:
+- Stage statuses (done/pending/stale)
+- Last run timestamps
+- Stale reasons
+- Next recommended action
+
+---
+
+## session-summary
+
+Generates session activity report.
+
+### Invocation
+
+```bash
+/sdd:session-summary                                  # Generate summary of current session
+```
+
+### Output artifacts
+
+<ParamField path="session/SESSION-{timestamp}.md" type="file">
+  Session activity report
+  
+  **Sections:**
+  - Skills invoked
+  - Artifacts created/modified
+  - Decisions made
+  - Pipeline state changes
+  - Time spent per phase
+</ParamField>
+
+---
+
+## setup
+
+Initializes SDD directory structure.
+
+### Invocation
+
+```bash
+/sdd:setup                                            # Initialize directories
+/sdd:setup --template=minimal                         # Minimal structure
+/sdd:setup --template=full                            # Full structure with examples
+```
+
+### Created directories
+
+<ParamField path="requirements/" type="directory">
+  Requirements documents
+</ParamField>
+
+<ParamField path="spec/" type="directory">
+  Technical specifications with subdirectories: domain/, use-cases/, workflows/, contracts/, tests/, nfr/, adr/, runbooks/
+</ParamField>
+
+<ParamField path="plan/" type="directory">
+  Implementation plans and FASE files
+</ParamField>
+
+<ParamField path="task/" type="directory">
+  Task documents
+</ParamField>
+
+<ParamField path="audits/" type="directory">
+  Audit reports and baselines
+</ParamField>
+
+<ParamField path="changes/" type="directory">
+  Change requests and reports
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="pipeline-state.json" type="file">
+  Initialized pipeline state with all stages pending
+</ParamField>
+
+<ParamField path="CLAUDE.md" type="file">
+  (if not exists) Project context template
+</ParamField>
+
+---
+
+## sync-notion
+
+Bidirectional synchronization with Notion databases.
+
+### Invocation
+
+```bash
+/sdd:sync-notion                                      # Interactive setup
+/sdd:sync-notion --pull                               # Pull from Notion
+/sdd:sync-notion --push                               # Push to Notion
+/sdd:sync-notion --sync                               # Bidirectional sync
+```
+
+### Configuration
+
+Requires `sync-notion/config.json`:
+
+```json
+{
+  "notionToken": "secret_...",
+  "databaseId": "...",
+  "mapping": {
+    "requirements": "Requirements Database",
+    "tasks": "Tasks Database"
+  }
+}
+```
+
+### Sync protocol
+
+<ParamField path="--pull" type="mode">
+  Fetches from Notion, updates local SDD artifacts, marks conflicts
+</ParamField>
+
+<ParamField path="--push" type="mode">
+  Sends local changes to Notion, creates/updates pages and database rows
+</ParamField>
+
+<ParamField path="--sync" type="mode">
+  Bidirectional: pulls first, resolves conflicts, then pushes
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="sync-notion/SYNC-REPORT-{timestamp}.md" type="file">
+  Sync activity report
+  
+  **Sections:**
+  - Items pulled from Notion
+  - Items pushed to Notion
+  - Conflicts detected and resolution
+  - Sync statistics
+</ParamField>
+
+---
+
+## code-index
+
+Builds symbol-level code intelligence graph.
+
+### Invocation
+
+```bash
+/sdd:code-index                                       # Full indexing
+/sdd:code-index --scope=src/api                       # Scope to paths
+/sdd:code-index --incremental                         # Update only changed files
+```
+
+### Indexed data
+
+<ParamField path="Symbols" type="data">
+  Functions, classes, interfaces, types with signatures and locations
+</ParamField>
+
+<ParamField path="Call graph" type="data">
+  Caller-callee relationships
+</ParamField>
+
+<ParamField path="Import graph" type="data">
+  Module dependencies
+</ParamField>
+
+<ParamField path="Refs annotations" type="data">
+  Code → spec traceability via `Refs:` comments
+</ParamField>
+
+### Output artifacts
+
+<ParamField path=".sdd/code-index.json" type="file">
+  Symbol table and call graph in MCP-compatible format
+</ParamField>
+
+### MCP integration
+
+Enables `sdd_context`, `sdd_impact`, and `sdd_search` MCP tools for:
+- `reconcile` — enriched impact analysis
+- `req-change` — commit impact analysis
+- `reverse-engineer` — code analysis
+
+---
+
+## dashboard
+
+Generates HTML visualization of project state.
+
+### Invocation
+
+```bash
+/sdd:dashboard                                        # Generate dashboard
+/sdd:dashboard --serve                                # Generate and serve locally
+```
+
+### Visualizations
+
+<ParamField path="Pipeline status" type="view">
+  Stage status, progress bar, next action
+</ParamField>
+
+<ParamField path="Traceability graph" type="view">
+  Interactive graph: REQ → UC → WF → API → BDD → INV
+</ParamField>
+
+<ParamField path="Health metrics" type="view">
+  Coverage percentages, defect counts, test coverage
+</ParamField>
+
+<ParamField path="Findings summary" type="view">
+  Dead code, tech debt, audit findings
+</ParamField>
+
+<ParamField path="Recent activity" type="view">
+  Timeline of skill invocations and artifact changes
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="dashboard/index.html" type="file">
+  Interactive HTML dashboard with embedded data
+</ParamField>
+
+<ParamField path="dashboard/assets/" type="directory">
+  CSS, JavaScript, and visualization libraries
+</ParamField>

@@ -1,0 +1,293 @@
+---
+title: "Requirements"
+description: "Format for requirements artifacts using EARS syntax"
+---
+
+## Overview
+
+Requirements in the SDD framework use the **EARS (Easy Approach to Requirements Syntax)** format to ensure clarity, testability, and consistency. Requirements are stored in `requirements/REQUIREMENTS.md`.
+
+## Location
+
+`requirements/REQUIREMENTS.md`
+
+## EARS syntax
+
+EARS provides five requirement templates based on the triggering condition:
+
+### 1. Ubiquitous requirements (always active)
+
+**Template**: `The <system> shall <action> <object>.`
+
+**Example**:
+```markdown
+REQ-SYS-001: The system shall encrypt all data at rest using AES-256.
+```
+
+### 2. Event-driven requirements
+
+**Template**: `When <trigger>, the <system> shall <action> <object>.`
+
+**Example**:
+```markdown
+REQ-EXT-002: When a PDF file is uploaded, the system shall validate its size does not exceed 50MB.
+```
+
+### 3. State-driven requirements
+
+**Template**: `While <state>, the <system> shall <action> <object>.`
+
+**Example**:
+```markdown
+REQ-AUTH-003: While a user is authenticated, the system shall refresh their session token every 15 minutes.
+```
+
+### 4. Optional feature requirements
+
+**Template**: `Where <feature is included>, the <system> shall <action> <object>.`
+
+**Example**:
+```markdown
+REQ-NFR-004: Where multi-tenant isolation is enabled, the system shall partition data by tenant ID.
+```
+
+### 5. Unwanted behavior requirements
+
+**Template**: `If <unwanted condition>, then the <system> shall <action> <object>.`
+
+**Example**:
+```markdown
+REQ-SEC-005: If authentication fails three times, then the system shall lock the account for 15 minutes.
+```
+
+## Requirement ID format
+
+**Pattern**: `REQ-{PREFIX}-{NNN}`
+
+- `REQ` - Type identifier
+- `{PREFIX}` - 2-4 letter category code
+- `{NNN}` - 3-digit sequence number (zero-padded)
+
+### Common prefixes
+
+| Prefix | Category | Example |
+|--------|----------|----------|
+| `EXT` | Extraction & Processing | `REQ-EXT-001` |
+| `CVA` | CV Analysis | `REQ-CVA-015` |
+| `SYS` | System-wide | `REQ-SYS-042` |
+| `SEC` | Security | `REQ-SEC-008` |
+| `AUTH` | Authentication | `REQ-AUTH-003` |
+| `NFR` | Non-functional | `REQ-NFR-020` |
+| `API` | API/Integration | `REQ-API-012` |
+
+## Metadata fields
+
+Each requirement should include:
+
+<ResponseField name="ID" type="string" required>
+  Unique identifier in `REQ-{PREFIX}-{NNN}` format.
+</ResponseField>
+
+<ResponseField name="Priority" type="enum" required>
+  One of:
+  - `Must Have` - Critical for MVP
+  - `Should Have` - Important but not blocking
+  - `Nice to Have` - Desirable enhancement
+</ResponseField>
+
+<ResponseField name="Source" type="string">
+  Stakeholder or source document that originated this requirement.
+  
+  Example: `"Product Owner"`, `"GDPR Article 32"`, `"User Interview 2026-02-15"`
+</ResponseField>
+
+<ResponseField name="Rationale" type="string">
+  Why this requirement exists. Answers the "so that" question.
+  
+  Example: `"To comply with data protection regulations"`
+</ResponseField>
+
+<ResponseField name="Acceptance Criteria" type="array">
+  Given/When/Then scenarios that define testability.
+  
+  Example:
+  ```
+  - Given a PDF file of 50MB, When uploaded, Then the system accepts it
+  - Given a PDF file of 51MB, When uploaded, Then the system rejects it with error "File too large"
+  ```
+</ResponseField>
+
+## Document structure
+
+```markdown
+# Requirements Document
+
+> **Project:** My Project
+> **Version:** 1.0
+> **Date:** 2026-03-01
+> **Status:** Approved
+
+## Document Information
+
+| Field | Value |
+|-------|-------|
+| Author | Requirements Engineer |
+| Stakeholders | Product Owner, Tech Lead, Security Officer |
+| Review Date | 2026-03-01 |
+
+## 1. Introduction
+
+### 1.1 Purpose
+[Describe the purpose of this requirements document]
+
+### 1.2 Scope
+[Define what is in scope and out of scope]
+
+### 1.3 Definitions
+[Key terms and their definitions]
+
+## 2. Stakeholder Requirements
+
+### 2.1 Extraction & Processing (EXT)
+
+#### REQ-EXT-001: PDF file upload size validation
+
+**Priority**: Must Have
+**Source**: Product Owner
+**EARS**: When a PDF file is uploaded, the system shall validate its size does not exceed 50MB.
+
+**Rationale**: To prevent resource exhaustion and ensure reasonable processing times.
+
+**Acceptance Criteria**:
+- Given a PDF file of 50MB, When uploaded, Then the system accepts it
+- Given a PDF file of 51MB, When uploaded, Then the system rejects it with error "File too large"
+- Given a file that is not a PDF, When uploaded, Then the system rejects it with error "Invalid file type"
+
+**Traces to**:
+- UC-001: Upload PDF for analysis
+- INV-EXT-005: File size limit invariant
+
+---
+
+#### REQ-EXT-002: Text extraction from PDF
+
+[...continue pattern for all requirements...]
+
+### 2.2 Security (SEC)
+
+[...security requirements...]
+
+## 3. System Requirements
+
+### 3.1 Functional
+
+[...functional requirements...]
+
+### 3.2 Non-Functional
+
+[...non-functional requirements...]
+
+## 4. Traceability Matrix
+
+| Requirement | Use Cases | Specifications | Tests |
+|-------------|-----------|----------------|-------|
+| REQ-EXT-001 | UC-001 | BDD-001 | TEST-001 |
+
+## Appendix A: Glossary
+
+[Domain terms and definitions]
+```
+
+## Quality criteria
+
+Requirements must pass these checks (see `audit-checklist.md`):
+
+### Clarity
+- Single interpretation
+- No vague terms ("fast", "user-friendly", "robust")
+- No ambiguous pronouns
+- Quantified where needed
+
+### Testability
+- Observable outcome
+- Acceptance criteria derivable
+- No subjective terms
+- Measurable quality attributes
+
+### Atomicity
+- Single concern
+- No compound statements (avoid "and"/"or")
+- One decision
+
+### Necessity
+- Stakeholder-validated
+- Not a premature solution (apply 5-Whys)
+- ROI justified
+
+### Completeness
+- Normal case covered
+- Edge cases addressed
+- Error cases specified
+- Security considered
+
+## Example
+
+```markdown
+### REQ-EXT-001: PDF file upload size validation
+
+**Priority**: Must Have
+**Source**: Product Owner (User Interview 2026-02-15)
+**EARS**: When a PDF file is uploaded, the system shall validate its size does not exceed 50MB.
+
+**Rationale**: Users reported upload failures with large files. Analysis shows 99th percentile file size is 45MB. Setting limit at 50MB provides buffer while preventing resource exhaustion.
+
+**Acceptance Criteria**:
+- Given a PDF file of exactly 50MB, When uploaded, Then the system accepts it
+- Given a PDF file of 50MB + 1 byte, When uploaded, Then the system rejects it with HTTP 413 and error "File size exceeds 50MB limit"
+- Given a file with .pdf extension but invalid PDF structure, When uploaded, Then the system rejects it with HTTP 400 and error "Invalid PDF file"
+- Given a PDF file of 10MB, When uploaded during system peak load, Then the system still accepts it within 2 seconds
+
+**Traces to**:
+- UC-001: Upload PDF for analysis
+- INV-EXT-005: File size limit invariant
+- BDD-001: PDF upload scenarios
+- API-pdf-upload: POST /api/v1/pdfs endpoint
+
+**Notes**:
+- Validation must occur before file is written to disk
+- Error response must include retry guidance if upload failed due to timeout
+- Consider implementing chunked upload for future enhancement (tracked as REQ-EXT-025)
+```
+
+## Tools
+
+### Generation
+
+Use the requirements-engineer skill:
+
+```bash
+/sdd:requirements-engineer
+```
+
+### Validation
+
+Audit requirements quality:
+
+```bash
+/sdd:spec-auditor
+```
+
+### Change management
+
+Manage requirement changes:
+
+```bash
+/sdd:req-change REQ-EXT-001 --reason="Increase size limit to 100MB"
+```
+
+## Related
+
+- **Skills**: `/sdd:requirements-engineer`, `/sdd:spec-auditor`, `/sdd:req-change`
+- **References**: `elicitation-guide.md`, `audit-checklist.md`
+- **Downstream**: UC, BDD, TASK artifacts trace to requirements
+- **SWEBOK**: Chapter 01 (Requirements Engineering)

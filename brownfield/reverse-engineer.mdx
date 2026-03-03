@@ -1,0 +1,338 @@
+---
+title: /sdd:reverse-engineer
+description: Analyzes existing code and tests to generate complete SDD artifacts with full traceability. Bootstraps the SDD pipeline for brownfield projects.
+---
+
+The reverse-engineer skill performs deep code analysis to extract requirements, specifications, test plans, architecture documentation, and retroactive tasks from existing codebases. It operates as a lateral entry point to bootstrap the SDD pipeline for brownfield projects.
+
+## What it does
+
+<CardGroup cols={2}>
+  <Card title="Scans entire codebase" icon="scanner">
+    Builds a complete inventory of source files, modules, dependencies, and architectural layers.
+  </Card>
+  <Card title="Extracts entities and patterns" icon="sitemap">
+    Identifies routes, state machines, invariants, business rules, and infrastructure patterns.
+  </Card>
+  <Card title="Generates SDD artifacts" icon="file-code">
+    Creates requirements (EARS syntax), specifications, test plans, architecture plans, and retroactive tasks.
+  </Card>
+  <Card title="Documents findings" icon="magnifying-glass">
+    Catalogs dead code, tech debt, workarounds, orphan code, and implicit rules with severity markers.
+  </Card>
+</CardGroup>
+
+<Warning>
+  The reverse-engineer skill is **read-only** for source code. It never modifies files in `src/` or `tests/` — it only generates SDD artifacts.
+</Warning>
+
+## Invocation modes
+
+```bash
+# Full reverse engineering (default)
+/sdd:reverse-engineer
+
+# Scope to specific paths
+/sdd:reverse-engineer --scope=src/api,src/models
+
+# Inventory only — scan and classify without generating artifacts
+/sdd:reverse-engineer --inventory-only
+
+# Continue from a checkpoint
+/sdd:reverse-engineer --continue
+
+# Findings only — document dead code, debt, workarounds
+/sdd:reverse-engineer --findings-only
+```
+
+| Mode | Phases Executed | Use Case |
+|------|----------------|----------|
+| **default** | All 10 phases | Full brownfield bootstrap |
+| `--scope=paths` | All 10, filtered to paths | Partial reverse engineering (module-level) |
+| `--inventory-only` | Phases 1-3 only | Quick assessment of codebase |
+| `--continue` | Resume from last checkpoint | Continue after review pause |
+| `--findings-only` | Phases 1-4 + findings extraction | Document code health without generating specs |
+
+## Ten phases
+
+The reverse-engineer skill executes ten phases to transform code into SDD artifacts:
+
+### Phase 1: Pre-flight
+
+Validates environment and loads context:
+
+- Checks for existing SDD artifacts (warns and suggests `/sdd:reconcile` if found)
+- Loads `pipeline-state.json` or creates with all stages `pending`
+- Reads `onboarding/ONBOARDING-REPORT.md` for scenario and leverage hints
+- Detects project languages, frameworks, and package manager
+- Creates working directory: `reverse-engineering/` for intermediate outputs
+
+<Info>
+  If SDD artifacts already exist, use `/sdd:reconcile` instead of reverse-engineer to avoid overwriting.
+</Info>
+
+### Phase 2: Scan and inventory
+
+Builds a complete map of the codebase:
+
+- Inventories all source files by language and directory
+- Counts files, lines of code, lines of comments
+- Builds module dependency graph (import/require analysis)
+- Identifies architectural layers: routes, services, data access, models, middleware, utilities
+- Detects design patterns: MVC, CQRS, event sourcing, layered, microservices
+- Maps database schema from ORM models and migration files
+- Scans test files separately: framework, structure, coverage, naming conventions
+
+**Output:** `reverse-engineering/INVENTORY.md`
+
+### Phase 3: Code analysis
+
+Performs deep analysis using language-specific patterns:
+
+<Tabs>
+  <Tab title="Entity extraction">
+    Classes, interfaces, types, structs, enums with fields and relationships
+  </Tab>
+  <Tab title="Route extraction">
+    HTTP methods, paths, parameters, request/response schemas, middleware chain
+  </Tab>
+  <Tab title="State machines">
+    States, transitions, guards, actions from switch/case, state pattern, enum-based flows
+  </Tab>
+  <Tab title="Invariants">
+    Validation rules, assertions, constraints, guard clauses, business rule checks
+  </Tab>
+  <Tab title="Dependencies">
+    What each module depends on and what depends on it
+  </Tab>
+  <Tab title="Dead code">
+    Unreachable functions, unused exports, commented-out code blocks, deprecated markers
+  </Tab>
+  <Tab title="Tech debt">
+    TODO/FIXME/HACK/XXX comments, complexity hotspots, duplication patterns
+  </Tab>
+  <Tab title="Workarounds">
+    Temporary fixes, environment-specific hacks, version-pinned patches
+  </Tab>
+  <Tab title="Business rules">
+    Conditionals that encode business logic without documentation
+  </Tab>
+  <Tab title="Infrastructure">
+    Logging, error handling, authentication, caching, rate limiting patterns
+  </Tab>
+</Tabs>
+
+**Output:** `reverse-engineering/ANALYSIS.md`
+
+### Phase 4: Test analysis
+
+Extracts behavioral specifications from existing tests:
+
+- Parses test files to extract test suite structure (describe/context/it nesting)
+- Maps assertion patterns to invariants and postconditions
+- Extracts setup/teardown as preconditions and state requirements
+- Identifies mocks/stubs as external dependency contracts
+- Analyzes test data to determine valid/invalid input boundaries
+- Maps test coverage to source modules
+- Classifies tests: unit, integration, e2e, performance
+
+**Output:** `reverse-engineering/TEST-ANALYSIS.md`
+
+---
+
+<Note>
+  **Checkpoint 1:** The skill pauses after Phase 4 to present the inventory and analysis summary. It asks for confirmation before proceeding with artifact generation. In `--inventory-only` mode, the skill stops here.
+</Note>
+
+---
+
+### Phase 5: Requirements extraction
+
+Generates SDD-format requirements from code analysis:
+
+- Maps discovered features to requirements using EARS syntax
+- Routes/endpoints become functional requirements: `WHEN <trigger> THE <system> SHALL <behavior>`
+- Validation rules become constraint requirements
+- Auth/authz patterns become security requirements
+- Performance configurations become NFRs
+- Assigns requirement IDs: `REQ-{GROUP}-{NNN}` following domain structure
+- Tags each requirement with confidence level: `[INFERRED]`, `[IMPLICIT-RULE]`, or no tag
+- Cross-references each requirement to source location: `file:line`
+
+**Output:** `requirements/REQUIREMENTS.md` (full SDD format)
+
+### Phase 6: Specification generation
+
+Generates the complete `spec/` directory:
+
+<AccordionGroup>
+  <Accordion title="Domain model (spec/domain.md)">
+    - Entities from Phase 3 entity extraction
+    - Relationships from dependency mapping
+    - Aggregates from transactional boundaries
+    - Value objects from immutable types
+  </Accordion>
+  
+  <Accordion title="Use cases (spec/use-cases.md)">
+    - One use case per user-facing feature/endpoint
+    - Actors inferred from auth roles and entry points
+    - Pre/postconditions from test assertions
+    - Alternative flows from error handling paths
+  </Accordion>
+  
+  <Accordion title="Workflows (spec/workflows.md)">
+    - State machines from Phase 3 detection
+    - Multi-step processes from sequential service calls
+    - Event flows from pub/sub patterns
+  </Accordion>
+  
+  <Accordion title="API contracts (spec/contracts.md)">
+    - Endpoints from route extraction
+    - Request/response schemas from type definitions
+    - Error codes from error handling patterns
+    - Authentication requirements
+  </Accordion>
+  
+  <Accordion title="NFRs (spec/nfr.md)">
+    - Performance from config (timeouts, pool sizes, cache TTLs)
+    - Security from auth patterns
+    - Reliability from retry/circuit-breaker patterns
+    - Scalability from container/cluster config
+  </Accordion>
+  
+  <Accordion title="ADRs (spec/adr/)">
+    - One ADR per major architectural decision detected
+    - Framework choice, database choice, auth strategy
+    - Status: `[INFERRED]` — decision already implemented but rationale is guessed
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<Note>
+  **Checkpoint 2:** The skill pauses after Phase 6 to present the generated artifacts summary. It asks for confirmation before proceeding with test plan, architecture plan, and task generation.
+</Note>
+
+---
+
+### Phase 7: Test plan mapping
+
+Generates test plan aligned with discovered tests and specs:
+
+- Maps existing tests to generated requirements and use cases
+- Identifies coverage gaps (requirements without tests)
+- Generates `test/TEST-PLAN.md` with existing tests classified by type
+- Recommends new tests for gaps
+- Generates `test/TEST-MATRIX-*.md` per domain area
+- Generates `test/PERF-SCENARIOS.md` if performance tests/config detected
+
+**Output:** `test/` directory (SDD format)
+
+### Phase 8: Plan reconstruction
+
+Generates architecture and implementation plan from existing structure:
+
+- Generates `plan/ARCHITECTURE.md`: C4 model (Context, Container, Component) from detected architecture
+- Documents technology stack
+- Extracts deployment architecture from Docker/CI config
+- Generates `plan/PLAN.md`: phases derived from architectural layers
+- Generates phase plans (`plan/fases/FASE-*.md`): one phase per architectural layer or domain area
+
+**Output:** `plan/` directory (SDD format)
+
+### Phase 9: Task reconstruction
+
+Generates retroactive task files documenting what was already built:
+
+- Generates `task/TASK-FASE-{N}.md` for each phase in the plan
+- Each task documents an already-implemented feature
+- Status: `[x]` (completed) with marker `[RETROACTIVE]`
+- Commit: Real SHA from git history if traceable, or `[NO-COMMIT]`
+- Files: Actual source and test files
+- Revert strategy: `RETROACTIVE — already in production`
+- Links tasks to requirements, use cases, and source files
+
+**Output:** `task/TASK-FASE-*.md` files (SDD format)
+
+### Phase 10: Traceability mapping and findings
+
+Establishes the full traceability chain and compiles findings report:
+
+1. Builds traceability chain:
+   - REQ → UC → WF → API → BDD → INV → ADR → TASK → CODE
+   - Marks gaps in the chain
+   - Generates `Refs:` markers for code files (document but do NOT modify code)
+
+2. Compiles findings report:
+   - Dead code inventory with `[DEAD-CODE]` markers
+   - Tech debt catalog with `[TECH-DEBT]` markers and severity
+   - Workaround registry with `[WORKAROUND]` markers
+   - Infrastructure patterns with `[INFRASTRUCTURE]` markers
+   - Orphan code (no requirements trace) with `[ORPHAN]` markers
+   - Implicit rules with `[IMPLICIT-RULE]` markers
+
+3. Updates `pipeline-state.json`:
+   - Sets all stages from requirements through tasks to `done`
+   - Records output hashes
+
+**Output:** `findings/FINDINGS-REPORT.md`, updated `pipeline-state.json`
+
+## Findings markers
+
+All findings are tagged with standardized markers and severity levels:
+
+| Marker | Meaning | Severity Range |
+|--------|---------|---------------|
+| `[DEAD-CODE]` | Unreachable or unused code | INFO — MEDIUM |
+| `[TECH-DEBT]` | Suboptimal implementation requiring future work | LOW — HIGH |
+| `[WORKAROUND]` | Temporary fix or hack | MEDIUM — HIGH |
+| `[INFRASTRUCTURE]` | Cross-cutting concern pattern | INFO |
+| `[ORPHAN]` | Code with no traceable requirement | LOW — MEDIUM |
+| `[INFERRED]` | Artifact derived from code patterns | INFO |
+| `[IMPLICIT-RULE]` | Business rule embedded in code without docs | MEDIUM — HIGH |
+
+<Tip>
+  Use the findings report to prioritize refactoring work. HIGH severity items should be addressed before releasing the SDD artifacts to downstream stages.
+</Tip>
+
+## Output summary
+
+The reverse-engineer skill generates a complete set of SDD artifacts:
+
+| Directory | Files Generated | Source Phase |
+|-----------|----------------|-------------|
+| `requirements/` | `REQUIREMENTS.md` | Phase 5 |
+| `spec/` | `domain.md`, `use-cases.md`, `workflows.md`, `contracts.md`, `nfr.md`, `adr/` | Phase 6 |
+| `test/` | `TEST-PLAN.md`, `TEST-MATRIX-*.md`, `PERF-SCENARIOS.md` | Phase 7 |
+| `plan/` | `ARCHITECTURE.md`, `PLAN.md`, `fases/FASE-*.md` | Phase 8 |
+| `task/` | `TASK-FASE-*.md` | Phase 9 |
+| `findings/` | `FINDINGS-REPORT.md` | Phase 10 |
+| `reverse-engineering/` | `INVENTORY.md`, `ANALYSIS.md`, `TEST-ANALYSIS.md` | Phases 2-4 (intermediate) |
+
+## Relationship to other skills
+
+<CardGroup cols={2}>
+  <Card title="Onboarding skill" icon="clipboard-list" href="/brownfield/onboarding">
+    Onboarding invokes reverse-engineer for brownfield scenarios (2, 5, 6, 8).
+  </Card>
+  <Card title="Import skill" icon="file-import" href="/brownfield/import">
+    Import may run before reverse-engineer to pre-populate requirements from external docs.
+  </Card>
+  <Card title="Reconcile skill" icon="arrows-rotate" href="/brownfield/reconcile">
+    Use reconcile instead if SDD artifacts already exist (drift scenario).
+  </Card>
+  <Card title="Spec auditor" icon="clipboard-check" href="/pipeline/spec-auditor">
+    Run after reverse-engineer to audit generated specs for defects.
+  </Card>
+</CardGroup>
+
+## Constraints
+
+1. **Source read-only:** Never modifies files in `src/` or `tests/`. These directories are strictly read-only.
+2. **Checkpoint pauses:** Must pause at Checkpoints 1 and 2 for user review. Does not proceed without confirmation.
+3. **EARS syntax:** All generated requirements must use EARS syntax: `WHEN <trigger> THE <system> SHALL <behavior>`.
+4. **Format compatibility:** All generated artifacts must follow the exact format produced by the corresponding forward-pipeline skill.
+5. **Evidence-based:** Every generated artifact must reference the source code location it was derived from.
+6. **Confidence tagging:** Inferred artifacts must be tagged with `[INFERRED]` or `[IMPLICIT-RULE]`.
+7. **No assumptions:** If a pattern is ambiguous, document it as a finding rather than guessing.
+8. **Findings documented:** Dead code, tech debt, and workarounds are documented and signaled with markers and severity — never silently ignored.

@@ -1,0 +1,219 @@
+---
+title: Test planner
+description: Generate comprehensive test strategies and matrices from specifications based on SWEBOK v4 testing fundamentals
+---
+
+The test planner is positioned between spec-auditor and plan-architect in the SDD pipeline, responsible for generating test strategies, test matrices, and performance scenarios from specification documents.
+
+## Purpose
+
+This skill helps you:
+- Generate comprehensive test strategies from specifications
+- Create test matrices with input combinations and boundary values
+- Define test coverage targets per implementation phase (FASE)
+- Create performance test scenarios from NFRs
+- Audit test coverage of existing specs
+
+## When to use
+
+Use this skill when:
+- Specifications exist in `spec/` and have been audited by spec-auditor
+- You need a test strategy before generating implementation plans
+- You want to define test coverage targets per FASE
+- You need performance test scenarios derived from NFRs
+- You want to audit test completeness of existing BDD specs
+- You want to generate test matrices for complex use cases
+
+## Modes of operation
+
+### Generate test strategy
+
+Use this mode when you want a comprehensive test plan for the project.
+
+The skill reads all specification documents (use cases, tests, NFRs, security requirements, invariants, contracts, events) and classifies test types needed per spec element:
+
+| Spec element | Test types | Level |
+|--------------|------------|-------|
+| Entity invariants (INV-*) | Unit tests (property-based) | Unit |
+| UC main flows | BDD scenarios (Given/When/Then) | Integration |
+| UC exception flows | Negative BDD scenarios | Integration |
+| API contracts | Contract tests (request/response schema) | Integration |
+| Event schemas | Event contract tests (schema validation) | Integration |
+| Workflows (WF-*) | End-to-end scenarios | E2E |
+| NFR Performance | Load tests, stress tests | Performance |
+| NFR Security | Penetration tests, auth bypass tests | Security |
+| NFR Limits | Rate limit tests, quota enforcement | Integration |
+| Cross-UC flows | Saga/choreography tests | E2E |
+
+The skill identifies gaps in existing BDD specs:
+- Use cases without BDD files
+- Use cases with BDD but missing exception flows
+- Invariants without property tests
+- NFRs without measurable test scenarios
+
+### Generate test matrices
+
+Use this mode when you want detailed input/output matrices for complex use cases.
+
+The skill applies test design techniques from SWEBOK v4:
+
+- **Equivalence partitioning**: For each input, identify valid and invalid partitions
+- **Boundary value analysis**: For numeric/range inputs, identify boundary values (min-1, min, min+1, max-1, max, max+1)
+- **Decision table**: For use cases with multiple conditions, build condition/action table
+- **State transition**: For entities with state machines, generate tests for each valid and invalid transition
+
+### Generate performance scenarios
+
+Use this mode when you need performance test scenarios derived from NFR specs.
+
+The skill reads NFR documents (PERFORMANCE.md, LIMITS.md) and contracts to generate scenarios:
+
+| Scenario type | Purpose | Duration |
+|---------------|---------|----------|
+| Smoke | Verify baseline functionality under minimal load | 1 min |
+| Load | Verify p99 targets under expected concurrent users | 10 min |
+| Stress | Find breaking point beyond expected load | 15 min |
+| Soak | Detect memory leaks under sustained load | 1 hour |
+| Spike | Verify recovery from sudden traffic bursts | 5 min |
+
+### Audit test coverage
+
+Use this mode when you want to verify that existing test specs are complete.
+
+The skill builds a traceability matrix listing all use cases, invariants, contracts, workflows, and NFRs, then checks if corresponding tests exist in `spec/tests/`.
+
+Coverage metrics computed:
+
+| Dimension | Formula | Target |
+|-----------|---------|--------|
+| UC coverage | UCs with BDD / total UCs | 100% |
+| Exception coverage | Exception flows tested / total exception flows | ≥ 80% |
+| Invariant coverage | INVs with property tests / total INVs | 100% |
+| Contract coverage | Endpoints with contract tests / total endpoints | 100% |
+| NFR coverage | Measurable NFRs with test scenarios / total measurable NFRs | 100% |
+
+## Workflow
+
+<Steps>
+
+<Step title="Read specifications">
+Read all specification documents: use cases, workflows, tests, NFRs, invariants, contracts, events, and security audit findings.
+</Step>
+
+<Step title="Classify test types">
+For each spec element, classify which test types are needed (unit, integration, E2E, performance, security) and at which level.
+</Step>
+
+<Step title="Identify gaps">
+Flag use cases without BDD files, use cases with incomplete BDD, invariants without property tests, and NFRs without test scenarios.
+</Step>
+
+<Step title="Define coverage targets">
+Ask user for overall coverage target (recommend 80% minimum) and map test types to implementation phases (FASEs).
+</Step>
+
+<Step title="Generate test plan">
+Generate `test/TEST-PLAN.md` with test strategy summary, test levels (unit, integration, E2E, performance, security), test gaps identified, per-FASE test targets, and regression strategy.
+</Step>
+
+<Step title="Generate test matrices">
+For complex use cases, generate `test/TEST-MATRIX-UC-{NNN}.md` with inputs, decision tables, state transition tests, and traceability.
+</Step>
+
+<Step title="Generate performance scenarios">
+Generate `test/PERF-SCENARIOS.md` with targets from NFRs and scenarios for smoke, load, stress, soak, and spike testing.
+</Step>
+
+</Steps>
+
+## What this stage produces
+
+The test planner generates:
+
+- **Test plan** at `test/TEST-PLAN.md` with:
+  - Test strategy summary with coverage targets
+  - Test levels (unit, integration, E2E, performance, security) with techniques and frameworks
+  - Test gaps identified with priority levels
+  - Per-FASE test targets mapping test types to implementation phases
+  - Regression strategy (when to run which tests)
+
+- **Test matrices** at `test/TEST-MATRIX-UC-{NNN}.md` with:
+  - Inputs with valid/invalid partitions and boundary values
+  - Decision tables mapping conditions to expected actions
+  - State transition tests for stateful entities
+  - Traceability to use case sections
+
+- **Performance scenarios** at `test/PERF-SCENARIOS.md` with:
+  - Targets from NFRs (response time, throughput, concurrent users, rate limits)
+  - Scenarios (smoke, load, stress, soak, spike) with success criteria
+
+## Key principles
+
+### Test independence
+
+Each test must be independent — no shared mutable state, no execution order dependency.
+
+### Traceability
+
+Every test traces to a spec element (UC, INV, NFR, API contract). No test exists without a spec justification. No spec element exists without a test.
+
+### Risk-based prioritization
+
+Not all tests are equal. Prioritize by:
+1. Business criticality of the use case
+2. Failure impact (data loss > UX issue)
+3. Probability of defect (complex logic > simple CRUD)
+
+### Shift-left testing
+
+Test planning happens at spec time, not at implementation time.
+
+## Real example
+
+```markdown
+# Test Matrix: UC-001 — Authenticate user
+
+## Inputs
+
+| Input | Type | Valid Partitions | Invalid Partitions | Boundaries |
+|-------|------|------------------|--------------------|------------|
+| email | string | Valid email format (user@domain.com) | Missing @, invalid domain, empty | N/A |
+| password | string | 8-64 chars with mixed case + digit + special | < 8 chars, > 64 chars, missing requirements | 7, 8, 9, 63, 64, 65 chars |
+
+## Decision Table
+
+| # | Email valid | Password valid | Account status | Expected Action | Expected Status |
+|---|-------------|----------------|----------------|-----------------|------------------|
+| T1 | true | true | active | Generate JWT token | 200 |
+| T2 | true | true | locked | Return error message | 403 |
+| T3 | true | false | active | Return invalid credentials | 401 |
+| T4 | false | true | active | Return invalid email format | 400 |
+| T5 | false | false | active | Return invalid email format | 400 |
+
+## Traceability
+
+| Test Case | Covers | Spec Ref |
+|-----------|--------|----------|
+| T1 | Main flow | UC-001 §main |
+| T2 | Exception flow: account locked | UC-001 §exception.3 |
+| T3 | Exception flow: invalid credentials | UC-001 §exception.2 |
+| T4 | Exception flow: invalid email | UC-001 §exception.1 |
+```
+
+## Pipeline integration
+
+This skill is **Step 3.5** of the SDD pipeline (between spec-auditor and plan-architect):
+
+```
+spec-auditor → audits/AUDIT-BASELINE.md
+        ↓
+test-planner → test/TEST-PLAN.md, test/TEST-MATRIX-*.md (THIS SKILL)
+        ↓
+plan-architect → plan/
+```
+
+**Input**: `spec/` (audit-clean), optionally `audits/SECURITY-AUDIT-BASELINE.md`
+
+**Output**: `test/TEST-PLAN.md`, `test/TEST-MATRIX-UC-*.md`, `test/PERF-SCENARIOS.md`
+
+**Next step**: Run plan-architect which reads test strategy for implementation planning

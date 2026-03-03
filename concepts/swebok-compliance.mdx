@@ -1,0 +1,342 @@
+---
+title: SWEBOK v4 and standards compliance
+description: How the SDD plugin aligns with SWEBOK v4 and industry standards for professional software engineering
+---
+
+The SDD plugin is built on the IEEE SWEBOK v4 (Software Engineering Body of Knowledge) and follows established industry standards for requirements engineering, design, construction, testing, and quality management.
+
+## SWEBOK v4 alignment
+
+The Software Engineering Body of Knowledge (SWEBOK) defines the foundational knowledge areas of software engineering. The SDD plugin implements SWEBOK principles across all pipeline stages.
+
+### Chapter 1: Software Requirements
+
+**Pipeline stage:** Requirements Engineering (`/sdd:requirements-engineer`)
+
+**SWEBOK topics covered:**
+
+| Topic | Implementation |
+|-------|----------------|
+| **Requirements Fundamentals** | EARS syntax enforces clear, testable requirements |
+| **Requirements Process** | Elicitation → Analysis → Specification → Validation |
+| **Requirements Elicitation** | Interactive Q&A with stakeholder identification |
+| **Requirements Analysis** | Perfect Technology Filter separates functional from nonfunctional |
+| **Requirements Specification** | Structured REQUIREMENTS.md with acceptance criteria |
+| **Requirements Validation** | Audit checklist verifies unambiguous, testable, atomic, necessary |
+| **Practical Considerations** | Iterative refinement, traceability from inception |
+
+**Key SWEBOK principle applied:**
+
+> "Requirements define WHAT the system must do, not HOW it will do it."
+
+The SDD requirements stage produces technology-agnostic requirements that remain stable even when implementation decisions change.
+
+### Chapter 2: Software Design
+
+**Pipeline stage:** Plan Architecture (`/sdd:plan-architect`)
+
+**SWEBOK topics covered:**
+
+| Topic | Implementation |
+|-------|----------------|
+| **Software Design Fundamentals** | Abstraction, separation of concerns, modularity, coupling/cohesion |
+| **Key Issues in Software Design** | Concurrency (via async patterns), error handling (ADR-026), persistence (data model) |
+| **Software Structure and Architecture** | C4 model (L1-L3), architectural styles (modular monolith, serverless, queue-mediated) |
+| **Software Design Quality Analysis** | Traceability matrix, validation checks (V1-V6) |
+| **Software Design Notations** | ASCII diagrams (versionable, diff-friendly) |
+| **Software Design Strategies** | Function-oriented (workflows), object-oriented (domain model), data-structure-centered (entities) |
+| **Software Design Processes** | Clarify → Research → Design → Plan (phase 2-5) |
+| **Software Design Rationale** | CLARIFY-LOG.md, RESEARCH.md, ADR references |
+
+**Key SWEBOK principle applied:**
+
+> "Architecture decisions should be explicit, documented, and traceable."
+
+Every architecture decision is captured as an ADR with context, decision, and consequences. No implicit decisions.
+
+### Chapter 3: Software Construction
+
+**Pipeline stages:** Task Generation (`/sdd:task-generator`) + Task Implementation (`/sdd:task-implementer`)
+
+**SWEBOK topics covered:**
+
+| Topic | Implementation |
+|-------|----------------|
+| **Software Construction Fundamentals** | Minimize complexity (atomic tasks), construct for verification (test-first) |
+| **Managing Construction** | Construction planning (TASK-ORDER.md), construction dependencies (task DAG), construction measurement (progress tracking) |
+| **Practical Considerations** | Coding (ubiquitous language), testing (TDD), quality (review checklists), integration (incremental commits) |
+| **Construction Technologies** | Assertions (invariant enforcement), design by contract (API contracts), defensive programming (input validation), test-first programming (TDD protocol) |
+
+**Key SWEBOK principle applied:**
+
+> "Construction should proceed incrementally with continuous integration and testing."
+
+Every task = one commit. Every commit leaves the system in a functional state. Tests pass after every task.
+
+### Chapter 4: Software Testing
+
+**Pipeline stages:** Test Planning (`/sdd:test-planner`) + Task Implementation (`/sdd:task-implementer`)
+
+**SWEBOK topics covered:**
+
+| Topic | Implementation |
+|-------|----------------|
+| **Software Testing Fundamentals** | Test levels (unit, integration, E2E), test types (functional, performance, security), test techniques (black-box, white-box, experience-based) |
+| **Test Levels** | Unit tests (invariants), integration tests (UC flows), system tests (workflows), acceptance tests (BDD scenarios) |
+| **Test Techniques** | Equivalence partitioning, boundary value analysis, decision tables, state transition testing, property-based testing |
+| **Test-Related Measures** | Code coverage (per-file Coverage Map), defect density, test coverage (REQ → BDD mapping) |
+| **Test Process** | Test planning → test design → test execution → test evaluation |
+
+**Key SWEBOK principle applied:**
+
+> "Testing is the dynamic verification that a program provides expected behaviors."
+
+Every requirement has BDD scenarios. Every invariant has property tests. Every UC flow has integration tests.
+
+### Chapter 8: Software Configuration Management
+
+**Pipeline integration:** All artifacts in git, atomic commits, rollback checkpoints
+
+**SWEBOK topics covered:**
+
+| Topic | Implementation |
+|-------|----------------|
+| **Management of SCM Process** | Commit conventions (conventional commits), branching strategy (FASE branches), release engineering (checkpoint tags) |
+| **Software Configuration Identification** | Artifact IDs (REQ-*, UC-*, TASK-*), version tracking (Document History sections) |
+| **Software Configuration Control** | Change requests (`/sdd:req-change`), change control board decisions (clarification sessions), change audits (audit trail in git log) |
+| **Software Configuration Status Accounting** | Pipeline state tracking (`pipeline-state.json`), dashboard reporting |
+| **Software Configuration Auditing** | `/sdd:traceability-check`, `/sdd:spec-auditor` |
+| **Software Release Management and Delivery** | FASE checkpoints, incremental delivery (MVP strategy in TASK-ORDER.md) |
+
+**Key SWEBOK principle applied:**
+
+> "Every change should be traceable to a requirement and reversible."
+
+Every commit has `Refs:` and `Task:` trailers. Every task has a revert strategy.
+
+### Chapter 10: Software Quality
+
+**Pipeline stages:** Spec Auditor (`/sdd:spec-auditor`) + Quality Verification (Phase 6 of `/sdd:task-implementer`)
+
+**SWEBOK topics covered:**
+
+| Topic | Implementation |
+|-------|----------------|
+| **Software Quality Fundamentals** | Error → Defect → Failure chain, quality requirements (NFRs), quality characteristics (ISO 25010) |
+| **Software Quality Management Processes** | Quality planning (TEST-PLAN.md), quality assurance (audit gates), quality control (review checklists) |
+| **Practical Considerations** | Defect characterization (audit severity), defect measurement (metrics: defect density, traceability coverage, orphan rate) |
+| **Software Quality Tools** | Audit tools (`/sdd:spec-auditor`), dashboard (`/sdd:dashboard`), traceability tools (`/sdd:traceability-check`) |
+
+**Key SWEBOK principle applied:**
+
+> "Quality is built in, not inspected in."
+
+Audit gates block downstream progression. 3C verification (Completeness, Correctness, Coherence) ensures spec quality before implementation.
+
+### Chapter 12: Software Engineering Economics
+
+**Pipeline consideration:** CLARIFY-LOG category CL-COST (cost & resources estimation)
+
+**SWEBOK topics covered:**
+
+| Topic | Implementation |
+|-------|----------------|
+| **Practical Considerations** | Effort estimation (task count × time estimates), risk-based prioritization (priority field in requirements) |
+
+## Industry standards compliance
+
+### IEEE 830: Software Requirements Specification
+
+The SDD plugin's REQUIREMENTS.md format follows IEEE 830 recommended practices:
+
+- **Introduction:** Project context (header metadata)
+- **Overall description:** Functional and nonfunctional requirements sections
+- **Specific requirements:** Individual requirement entries with unique IDs
+- **Appendices:** Traceability matrix
+
+**IEEE 830 quality characteristics:**
+
+| Characteristic | SDD Implementation |
+|---------------|-------------------|
+| **Correct** | Requirements audit (Mode 2 of requirements-engineer) |
+| **Unambiguous** | EARS syntax enforces clarity |
+| **Complete** | Gap analysis (specifications-engineer Mode 1) |
+| **Consistent** | Cross-document contradiction detection (spec-auditor CAT-05) |
+| **Ranked** | Priority field (Must/Should/Nice to have) |
+| **Verifiable** | Acceptance criteria in BDD format |
+| **Modifiable** | Markdown in git (easy to change and track) |
+| **Traceable** | REQ-* IDs referenced throughout pipeline |
+
+### ISO 14764: Software Maintenance
+
+The `/sdd:req-change` skill implements ISO 14764 change management:
+
+**Process steps:**
+
+1. **Problem/change identification** — User specifies requirement change
+2. **Analysis** — Blast radius analysis via traceability chain
+3. **Design** — Modification plan generated
+4. **Implementation** — Cascade propagation to specs → plans → tasks
+5. **Acceptance testing** — Verification of change impact
+6. **Migration** — Incremental task implementation
+
+**Change types supported:**
+
+- **ADD** — New requirement (creates new UC, tasks)
+- **MODIFY** — Change existing requirement (updates specs, regenerates affected tasks)
+- **DEPRECATE** — Remove requirement (marks obsolete, generates cleanup tasks)
+
+**ISO 14764 principle applied:**
+
+> "Changes should be managed systematically with impact analysis and traceability."
+
+Every change produces a change report documenting affected artifacts, cascade actions, and verification steps.
+
+### OWASP ASVS v4: Application Security Verification Standard
+
+The `/sdd:security-auditor` skill audits specs against OWASP ASVS:
+
+**Verification levels:**
+
+- **Level 1:** Opportunistic (basic security controls)
+- **Level 2:** Standard (most applications)
+- **Level 3:** Advanced (high-value applications)
+
+**Categories audited:**
+
+- V1: Architecture, Design and Threat Modeling
+- V2: Authentication
+- V3: Session Management
+- V4: Access Control
+- V5: Validation, Sanitization and Encoding
+- V7: Error Handling and Logging
+- V8: Data Protection
+- V9: Communication
+
+**Output:** `audits/SECURITY-AUDIT-BASELINE.md` with findings mapped to ASVS controls.
+
+### CWE: Common Weakness Enumeration
+
+Security audit findings reference CWE IDs:
+
+- CWE-79: Cross-site Scripting (XSS)
+- CWE-89: SQL Injection
+- CWE-200: Exposure of Sensitive Information
+- CWE-287: Improper Authentication
+- CWE-352: Cross-Site Request Forgery (CSRF)
+
+Each finding includes CWE ID, severity (CVSS), and remediation guidance.
+
+### C4 Model: Architecture Documentation
+
+The `/sdd:plan-architect` generates C4 architecture views:
+
+**Level 1: System Context**
+- Shows the system and its external dependencies
+- Actors, external systems, boundaries
+
+**Level 2: Container**
+- Shows high-level technology choices
+- Applications, data stores, message buses
+
+**Level 3: Component**
+- Shows internal structure
+- Modules, services, repositories
+
+**Output format:** ASCII diagrams in `plan/ARCHITECTURE.md` (versionable, diff-friendly)
+
+### Gherkin/BDD: Behavior-Driven Development
+
+All acceptance criteria use Gherkin syntax:
+
+```gherkin
+GIVEN an authenticated user with role "admin"
+WHEN they request GET /api/v1/users
+THEN the system returns 200 with a list of users
+  AND each user has fields: id, email, role, org_id
+  AND users are filtered by the requester's org_id (INV-SYS-001)
+```
+
+**BDD principles:**
+
+- **Specification by example** — Requirements expressed as concrete scenarios
+- **Ubiquitous language** — Business and technical stakeholders use same terms
+- **Living documentation** — Tests serve as executable specifications
+
+## Standards summary table
+
+| Standard | Coverage | Pipeline Stage | Verification |
+|---------|----------|---------------|-------------|
+| **SWEBOK v4 Ch01** | Requirements | Stage 1 (requirements-engineer) | Audit checklist |
+| **SWEBOK v4 Ch02** | Design | Stage 5 (plan-architect) | Validation checks V1-V6 |
+| **SWEBOK v4 Ch03** | Construction | Stages 6-7 (task-generator, task-implementer) | Review checklists |
+| **SWEBOK v4 Ch04** | Testing | Stage 4 (test-planner) + Stage 7 | Coverage metrics |
+| **SWEBOK v4 Ch08** | Configuration Management | All stages (git integration) | Traceability check |
+| **SWEBOK v4 Ch10** | Quality | Stage 3 (spec-auditor) | Quality scorecard |
+| **IEEE 830** | SRS format | Stage 1 (requirements-engineer) | Format validation |
+| **ISO 14764** | Change management | Lateral (req-change) | Change report |
+| **OWASP ASVS v4** | Security verification | Lateral (security-auditor) | Security audit report |
+| **CWE** | Weakness taxonomy | Lateral (security-auditor) | CWE mappings |
+| **C4 Model** | Architecture views | Stage 5 (plan-architect) | View completeness |
+| **Gherkin/BDD** | Acceptance criteria | Stages 1-2-4 | BDD scenario coverage |
+
+## Audit compliance benefits
+
+The SDD pipeline's standards compliance enables regulatory audit readiness:
+
+### SOC2 (System and Organization Controls)
+
+**Control:** CC8.1 — The entity authorizes, designs, develops or acquires, implements, operates, approves, maintains, and monitors environmental protections, software, data back-up processes, and recovery infrastructure to meet its objectives.
+
+**SDD evidence:**
+- Complete audit trail in git log (who, what, when)
+- Traceability from requirements to code (`/sdd:traceability-check` report)
+- Change management process (`/sdd:req-change` change reports)
+- Security controls verification (`/sdd:security-auditor` reports)
+
+### ISO 27001: Information Security Management
+
+**Control:** A.14.2.2 — System change control procedures
+
+**SDD evidence:**
+- Formal change process (req-change Phase 1-9)
+- Impact analysis before changes (blast radius in change reports)
+- Approval gates (user confirmation before cascade)
+- Testing of changes (incremental task implementation with tests)
+
+### FDA 21 CFR Part 11: Electronic Records
+
+**Requirement:** (e) Use of secure, computer-generated, time-stamped audit trails
+
+**SDD evidence:**
+- Git commits are cryptographically signed (optional)
+- Commit timestamps (ISO 8601)
+- `Refs:` and `Task:` trailers link changes to requirements
+- Immutable audit trail (git log cannot be altered without detection)
+
+### GDPR: General Data Protection Regulation
+
+**Requirement:** Article 25 — Data protection by design and by default
+
+**SDD evidence:**
+- Privacy requirements captured as REQ-NF-* (nonfunctional requirements)
+- Privacy invariants (e.g., INV-GDPR-001: PII must be encrypted at rest)
+- Security audit against OWASP ASVS (includes data protection controls)
+- Traceability shows privacy requirements → code → tests
+
+<Note>
+The SDD plugin does not replace professional audits or legal compliance reviews. It provides **evidence artifacts** and **process documentation** that support audit readiness.
+</Note>
+
+## Why standards matter
+
+Following established standards provides:
+
+1. **Professional credibility** — Demonstrates engineering maturity to stakeholders, auditors, and clients
+2. **Knowledge transfer** — New team members understand the system through standardized artifacts
+3. **Audit readiness** — Reduces audit preparation time from weeks to days
+4. **Quality assurance** — Standards encode decades of best practices
+5. **Legal protection** — Demonstrates due diligence in case of disputes or incidents
+6. **Tool interoperability** — Standardized formats enable integration with external tools
+
+The SDD pipeline automates standards compliance, making professional software engineering accessible to every project.

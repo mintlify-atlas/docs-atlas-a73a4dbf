@@ -1,0 +1,194 @@
+---
+title: MCP resources via sdd:// protocol
+description: Access pipeline state, graph schema, statistics, and coverage gaps through resource URIs
+---
+
+The MCP server exposes resources using the `sdd://` protocol. Resources provide read-only access to pipeline metadata and graph statistics.
+
+## Static resources
+
+These resources have fixed URIs and return real-time data from the traceability graph.
+
+### sdd://pipeline/status
+
+**Description**: Current pipeline stage, staleness, and next recommended action
+
+**MIME type**: `application/json`
+
+**Returns**:
+```json
+{
+  "currentStage": "requirements-engineer",
+  "currentStatus": "done",
+  "lastRun": "2026-03-03T10:30:00Z",
+  "progress": "5/7 stages complete",
+  "staleStages": ["bdd-test-spec-agent"],
+  "nextAction": "Run /sdd:bdd-test-spec-agent",
+  "generatedAt": "2026-03-03T10:30:15Z"
+}
+```
+
+### sdd://pipeline/stages
+
+**Description**: All 7 pipeline stages with status and timestamps
+
+**MIME type**: `application/json`
+
+**Returns**: Complete `pipeline` object from the traceability graph, including `currentStage` and `stages` array with status (`pending`, `running`, `done`, `stale`).
+
+### sdd://graph/schema
+
+**Description**: Documentation of the traceability graph schema (v3)
+
+**MIME type**: `text/plain`
+
+**Returns**: Human-readable schema overview including:
+
+- Root object structure
+- Artifact types: REQ, UC, WF, API, BDD, INV, ADR, NFR, RN, FASE, TASK
+- Relationship types: `implements`, `orchestrates`, `verifies`, `guarantees`, `decides`, `decomposes`, `implemented-by`, `implemented-by-code`, `tested-by`, `implemented-by-commit`, `reads-from`, `traces-to`
+- Artifact structure fields
+- Code intelligence structure (optional)
+
+### sdd://graph/stats
+
+**Description**: Artifact counts, coverage percentages, and classification breakdown
+
+**MIME type**: `application/json`
+
+**Returns**: The complete `statistics` object from the traceability graph, including:
+
+```json
+{
+  "totalArtifacts": 245,
+  "byType": { "REQ": 42, "UC": 38, "TASK": 87, ... },
+  "totalRelationships": 512,
+  "orphanedArtifacts": 3,
+  "traceabilityCoverage": {
+    "requirementsCovered": 38,
+    "requirementsTotal": 42,
+    "coveragePercent": 90.5
+  },
+  "classificationBreakdown": {
+    "byDomain": { "Security & Auth": 28, ... },
+    "byLayer": { "Backend": 64, "Frontend": 52, ... }
+  }
+}
+```
+
+### sdd://coverage/gaps
+
+**Description**: Top traceability gaps ordered by severity
+
+**MIME type**: `application/json`
+
+**Returns**:
+```json
+{
+  "totalGaps": 18,
+  "bySeverity": {
+    "critical": 4,
+    "high": 7,
+    "medium": 5,
+    "low": 2
+  },
+  "gaps": [
+    {
+      "id": "REQ-AUTH-005",
+      "title": "MFA token rotation",
+      "severity": "CRITICAL",
+      "missing": ["UC", "BDD", "Code", "Tests"]
+    }
+  ]
+}
+```
+
+**Severity classification**:
+
+- **CRITICAL**: 4 missing links
+- **HIGH**: 3 missing links
+- **MEDIUM**: 2 missing links
+- **LOW**: 1 missing link
+
+Returns top 30 gaps sorted by severity.
+
+## Resource templates
+
+These resources use URI templates with placeholders.
+
+### sdd://artifacts/{type}
+
+**Description**: List artifacts of a given type
+
+**Valid types**: REQ, UC, WF, API, BDD, INV, ADR, NFR, RN, FASE, TASK
+
+**MIME type**: `application/json`
+
+**Example**: `sdd://artifacts/REQ`
+
+**Returns**:
+```json
+{
+  "type": "REQ",
+  "count": 42,
+  "artifacts": [
+    {
+      "id": "REQ-AUTH-001",
+      "title": "User authentication via JWT",
+      "file": "requirements/security.md",
+      "category": "Security & Auth",
+      "hasCode": true,
+      "hasTests": true
+    }
+  ]
+}
+```
+
+### sdd://artifacts/{type}/{id}
+
+**Description**: Full detail of a specific artifact including all relationships
+
+**MIME type**: `application/json`
+
+**Example**: `sdd://artifacts/REQ/REQ-AUTH-001`
+
+**Returns**: Complete artifact object with:
+
+- All base fields (`id`, `type`, `category`, `title`, `file`, `line`, `priority`, `stage`)
+- Classification metadata
+- Code/test/commit references
+- **Upstream relationships** (artifacts this one points to)
+- **Downstream relationships** (artifacts that point to this one)
+
+```json
+{
+  "id": "REQ-AUTH-001",
+  "type": "REQ",
+  "title": "User authentication via JWT",
+  "file": "requirements/security.md",
+  "line": 15,
+  "priority": "HIGH",
+  "stage": "requirements-engineer",
+  "codeRefs": [...],
+  "testRefs": [...],
+  "upstream": [
+    { "target": "ADR-001", "type": "decides" }
+  ],
+  "downstream": [
+    { "source": "UC-003", "type": "implements" },
+    { "source": "BDD-AUTH-001", "type": "verifies" }
+  ]
+}
+```
+
+## Usage in conversations
+
+You can reference resources directly in MCP-enabled conversations:
+
+```
+"Check sdd://pipeline/status to see the current stage"
+"Read sdd://coverage/gaps for priority actions"
+"Access sdd://artifacts/TASK to list all tasks"
+```
+
+The MCP client will automatically fetch the resource and inject its contents into the conversation context.

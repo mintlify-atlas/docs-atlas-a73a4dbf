@@ -1,0 +1,264 @@
+---
+title: sdd_context
+description: Get a 360-degree view of an artifact
+---
+
+## Overview
+
+Get a 360-degree view of an artifact: its definition, all upstream/downstream connections, code references, test references, commit references, and coverage gaps. Essential before modifying any artifact.
+
+This tool provides the most comprehensive view of a single artifact, including all its relationships, implementation details, and traceability gaps.
+
+## Parameters
+
+<ParamField path="artifact_id" type="string" required>
+  The artifact ID (e.g. `REQ-AUTH-001`, `UC-003`, `TASK-F01-003`)
+</ParamField>
+
+## Response
+
+<ResponseField name="artifact" type="object">
+  Core artifact information
+  <ResponseField name="id" type="string">
+    Artifact ID
+  </ResponseField>
+  <ResponseField name="type" type="string">
+    Artifact type (REQ, UC, BDD, etc.)
+  </ResponseField>
+  <ResponseField name="category" type="string">
+    Artifact category
+  </ResponseField>
+  <ResponseField name="title" type="string">
+    Artifact title
+  </ResponseField>
+  <ResponseField name="file" type="string">
+    Source file path
+  </ResponseField>
+  <ResponseField name="line" type="number">
+    Line number in source file
+  </ResponseField>
+  <ResponseField name="priority" type="string">
+    Priority level
+  </ResponseField>
+  <ResponseField name="stage" type="string">
+    Pipeline stage
+  </ResponseField>
+  <ResponseField name="classification" type="object">
+    Business and technical classification
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="coverageStatus" type="enum">
+  Overall traceability status:
+  - `Complete` - Has UC, BDD, code, and tests
+  - `In Progress` - Has UC and either code or tests
+  - `Specified` - Has UC only
+  - `Not Started` - Missing UC
+</ResponseField>
+
+<ResponseField name="upstream" type="array">
+  Relationships where this artifact is the source
+  <ResponseField name="id" type="string">
+    Target artifact ID
+  </ResponseField>
+  <ResponseField name="type" type="string">
+    Target artifact type
+  </ResponseField>
+  <ResponseField name="title" type="string">
+    Target artifact title
+  </ResponseField>
+  <ResponseField name="relationship" type="string">
+    Relationship type (e.g. "implements", "depends_on")
+  </ResponseField>
+  <ResponseField name="file" type="string">
+    Source file where relationship is defined
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="downstream" type="array">
+  Relationships where this artifact is the target
+  <ResponseField name="id" type="string">
+    Source artifact ID
+  </ResponseField>
+  <ResponseField name="type" type="string">
+    Source artifact type
+  </ResponseField>
+  <ResponseField name="title" type="string">
+    Source artifact title
+  </ResponseField>
+  <ResponseField name="relationship" type="string">
+    Relationship type
+  </ResponseField>
+  <ResponseField name="file" type="string">
+    Source file where relationship is defined
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="codeRefs" type="array">
+  Code implementation references
+  <ResponseField name="file" type="string">
+    Code file path
+  </ResponseField>
+  <ResponseField name="symbol" type="string">
+    Symbol name (function, class, etc.)
+  </ResponseField>
+  <ResponseField name="symbolType" type="string">
+    Type of symbol
+  </ResponseField>
+  <ResponseField name="line" type="number">
+    Line number
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="testRefs" type="array">
+  Test references
+  <ResponseField name="file" type="string">
+    Test file path
+  </ResponseField>
+  <ResponseField name="testName" type="string">
+    Test name
+  </ResponseField>
+  <ResponseField name="line" type="number">
+    Line number
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="commitRefs" type="array">
+  Git commit references
+  <ResponseField name="sha" type="string">
+    Commit SHA
+  </ResponseField>
+  <ResponseField name="message" type="string">
+    Commit message
+  </ResponseField>
+  <ResponseField name="taskId" type="string">
+    Associated task ID
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="gaps" type="string[]">
+  Identified coverage gaps:
+  - `ORPHAN` - No relationships found
+  - `MISSING_UC` - No use case implements this requirement
+  - `MISSING_BDD` - No BDD scenario verifies this requirement
+  - `MISSING_TASK` - No task decomposes this requirement
+  - `MISSING_CODE` - No code references found
+  - `MISSING_TESTS` - No test references found
+  - `MISSING_COMMITS` - No commit references found
+</ResponseField>
+
+<ResponseField name="codeIntelligence" type="object" optional>
+  Code intelligence enrichment (when available)
+  <ResponseField name="symbols" type="array">
+    Related code symbols
+    <ResponseField name="name" type="string">
+      Symbol name
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Symbol type
+    </ResponseField>
+    <ResponseField name="file" type="string">
+      File path
+    </ResponseField>
+    <ResponseField name="lines" type="string">
+      Line range (e.g. "10-25")
+    </ResponseField>
+    <ResponseField name="callers" type="string[]">
+      Functions that call this symbol
+    </ResponseField>
+    <ResponseField name="callees" type="string[]">
+      Functions called by this symbol
+    </ResponseField>
+    <ResponseField name="isInferred" type="boolean">
+      Whether reference was inferred
+    </ResponseField>
+  </ResponseField>
+  <ResponseField name="processes" type="array">
+    Related business processes
+    <ResponseField name="name" type="string">
+      Process name
+    </ResponseField>
+    <ResponseField name="steps" type="string[]">
+      Process steps
+    </ResponseField>
+    <ResponseField name="entryPoint" type="string">
+      Entry point function
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+## Gap detection for requirements
+
+For REQ artifacts, the tool automatically detects:
+
+- **ORPHAN**: No relationships found — the requirement is isolated
+- **MISSING_UC**: No use case implements this requirement
+- **MISSING_BDD**: No BDD scenario verifies this requirement
+- **MISSING_TASK**: No task decomposes this requirement
+- **MISSING_CODE**: No code references found
+- **MISSING_TESTS**: No test references found
+- **MISSING_COMMITS**: No commit references found
+
+## Examples
+
+### Get complete context for a requirement
+
+```json
+{
+  "artifact_id": "REQ-AUTH-001"
+}
+```
+
+### Check implementation status of a use case
+
+```json
+{
+  "artifact_id": "UC-LOGIN-003"
+}
+```
+
+### Verify task completion
+
+```json
+{
+  "artifact_id": "TASK-F01-005"
+}
+```
+
+## TypeScript types
+
+```typescript
+interface ContextArgs {
+  artifact_id: string;
+}
+
+type CoverageStatus = "Complete" | "In Progress" | "Specified" | "Not Started";
+
+interface ArtifactContext {
+  artifact: {
+    id: string;
+    type: string;
+    category?: string;
+    title: string;
+    file: string;
+    line: number;
+    priority?: string;
+    stage?: string;
+    classification?: Record<string, unknown>;
+  };
+  coverageStatus: CoverageStatus;
+  upstream: Array<Relationship>;
+  downstream: Array<Relationship>;
+  codeRefs: Array<CodeRef>;
+  testRefs: Array<TestRef>;
+  commitRefs: Array<CommitRef>;
+  gaps: string[];
+  codeIntelligence?: Record<string, unknown>;
+}
+```
+
+## See also
+
+- [sdd_query](/api/mcp/sdd-query) - Search for artifacts
+- [sdd_trace](/api/mcp/sdd-trace) - Trace complete traceability chain
+- [sdd_coverage](/api/mcp/sdd-coverage) - Analyze coverage across domains

@@ -1,0 +1,245 @@
+---
+title: Specifications engineer
+description: Professional specifications engineer that transforms requirements into formal specification documents following SWEBOK v4
+---
+
+The specifications engineer is the second stage in the SDD pipeline, responsible for transforming software requirements into formal, structured specification documents.
+
+## Purpose
+
+This skill helps you:
+- Translate requirements into technical specifications
+- Create Software Requirements Specification (SRS) documents
+- Analyze requirements for gaps and ambiguities before specification
+- Build specification folder structures and documents
+- Propose modifications to deficient requirements
+
+## Modes of operation
+
+The skill operates in five modes based on your intent:
+
+### Analyze requirements for specification readiness
+
+Use this mode when you have requirements and want to move toward specifications. The skill evaluates each requirement for:
+
+- **Ambiguity**: Is it unambiguous enough to specify?
+- **Testability**: Can acceptance criteria be derived?
+- **Atomicity**: Can it map to a single spec?
+- **Scope clarity**: Are boundaries defined?
+
+For every issue found, the skill presents the issue clearly, provides 2-4 resolution options with a recommendation, and uses interactive questions to let you decide.
+
+### Create specifications
+
+Use this mode when requirements are ready for transformation into specs. The skill:
+
+1. Asks which specification format to use (SRS, use cases, user stories + BDD, actor-action, model-based)
+2. Asks about project structure preferences (monolithic vs. modular documents)
+3. Creates the canonical `spec/` folder structure
+4. Transforms each requirement into corresponding specifications
+5. Creates a traceability matrix linking requirements to specifications
+
+When specifying technical decisions that require evaluation of alternatives (e.g., REST vs GraphQL, encryption algorithm selection), the skill documents the open question in `spec/RESEARCH-QUESTIONS.md` for the plan-architect to investigate.
+
+### Propose requirements modifications
+
+This mode activates automatically when the analysis reveals significant deficiencies:
+
+- More than 30% of requirements have critical issues
+- Missing requirements exceed 20% of existing count
+- Fundamental conflicts exist between requirements
+- Core functionality is underspecified
+
+The skill creates a Requirements Modification Proposal with modified requirements, new requirements to add, and requirements to remove/merge.
+
+### Validate specifications
+
+Use this mode when you have existing specification documents to review. The skill verifies each specification has:
+
+- Clear acceptance criteria
+- Traceability to a requirement
+- Consistent terminology
+- Implementation-ready detail
+- No ambiguity
+
+### Brownfield specification
+
+Use this mode when you have an existing codebase and want to add specifications incrementally rather than specifying everything from scratch.
+
+The skill:
+1. Analyzes the existing codebase to build a component map
+2. Identifies and prioritizes modules based on business criticality, change frequency, dependency count, and risk level
+3. Generates specs incrementally for each prioritized module
+4. Creates `spec/COVERAGE.md` to track specification progress
+
+## Specification folder structure
+
+The skill generates the canonical folder structure that all downstream skills expect:
+
+```
+spec/
+├── README.md                              # Overview and navigation guide
+├── requirements/
+│   └── REQUIREMENTS.md                    # Input from requirements-engineer
+├── domain/
+│   ├── 01-GLOSSARY.md                     # Ubiquitous language
+│   ├── 02-ENTITIES.md                     # Domain entities
+│   ├── 03-VALUE-OBJECTS.md                # Value objects, enums
+│   ├── 04-STATES.md                       # State machines
+│   └── 05-INVARIANTS.md                   # Business rules as invariants
+├── use-cases/
+│   └── UC-NNN-{slug}.md                   # One file per use case
+├── workflows/
+│   └── WF-NNN-{slug}.md                   # Multi-step processes
+├── contracts/
+│   ├── API-{module}.md                    # REST/GraphQL API contracts
+│   ├── EVENTS-{module}.md                 # Domain events
+│   └── PERMISSIONS-MATRIX.md              # RBAC matrix
+├── adr/
+│   └── ADR-NNN-{slug}.md                  # Architecture decisions
+├── tests/
+│   ├── BDD-UC-NNN.md                      # BDD scenarios per use case
+│   └── PROPERTY-TESTS.md                  # Property-based test specs
+├── nfr/
+│   ├── PERFORMANCE.md                     # Performance targets
+│   ├── LIMITS.md                          # Rate limits, quotas
+│   ├── SECURITY.md                        # Security requirements
+│   └── OBSERVABILITY.md                   # Logging, metrics specs
+├── runbooks/
+│   └── RB-NNN-{slug}.md                   # Operational runbooks
+└── CLARIFICATIONS.md                      # Business rules from decisions
+```
+
+## Workflow
+
+<Steps>
+
+<Step title="Load requirements">
+Read `requirements/REQUIREMENTS.md` (output from requirements-engineer) as the primary input.
+</Step>
+
+<Step title="Analyze for readiness">
+Evaluate each requirement for specification readiness, identifying gaps, ambiguities, and conflicts.
+</Step>
+
+<Step title="Resolve issues interactively">
+For every issue found, present clear options to the user and record decisions in the traceability log.
+</Step>
+
+<Step title="Choose specification format">
+Ask which format(s) to use: SRS, use cases, user stories + BDD scenarios, actor-action, or model-based.
+</Step>
+
+<Step title="Create folder structure">
+Generate the canonical `spec/` folder structure with all required subdirectories.
+</Step>
+
+<Step title="Transform requirements to specs">
+For each requirement, create the corresponding specification with acceptance criteria and traceability.
+</Step>
+
+<Step title="Generate traceability matrix">
+Create a matrix linking each requirement to its specification section(s).
+</Step>
+
+<Step title="Mark clarifications">
+When requirements are ambiguous and the user is unavailable, embed `<!-- [NEEDS CLARIFICATION] NC-NNN: ... -->` markers directly in the spec text.
+</Step>
+
+</Steps>
+
+## What this stage produces
+
+The specifications engineer generates:
+
+- **Complete `spec/` directory** with all subdirectories populated
+- **Domain model**: Glossary, entities, value objects, state machines, and invariants
+- **Use cases**: One file per use case with triggering events, flows, preconditions, postconditions
+- **Workflows**: Multi-step processes spanning multiple use cases
+- **Contracts**: API contracts, event schemas, and permissions matrix
+- **Architecture decisions**: ADRs documenting key technical decisions
+- **Test specifications**: BDD scenarios and property test specs
+- **NFR specifications**: Performance targets, limits, security requirements, observability specs
+- **Traceability matrix**: Links between requirements and specifications
+- **Clarifications log**: Business rules (RN-NNN) from user decisions during specification
+
+## Key principles
+
+### Ask before assuming
+
+Never make assumptions silently. Every decision point must be presented to the user with options.
+
+### Traceability is non-negotiable
+
+Every specification must trace back to one or more requirements. Every requirement must have at least one specification.
+
+### Iterative, not waterfall
+
+If issues are found, stop and address them. Do not produce specifications over broken requirements.
+
+### Implementation-ready
+
+Each specification must be detailed enough that a developer unfamiliar with the project could implement it correctly without additional clarification.
+
+## Real example
+
+From REQ-F-001 (user authentication requirement):
+
+```markdown
+# UC-001: Authenticate user
+
+## Triggering event
+User submits login credentials via POST /api/v1/auth/login
+
+## Preconditions
+- User account exists in the system
+- Login endpoint is available
+
+## Main flow
+1. System receives email and password
+2. System validates email format (INV-USR-001)
+3. System retrieves user record by email
+4. System compares password hash using bcrypt
+5. System generates JWT token with 1-hour expiration
+6. System returns 200 with token and user profile
+
+## Exception flows
+### E1: Invalid email format
+- At step 2, if email format is invalid
+- System returns 400 with error message "Invalid email format"
+
+### E2: Invalid credentials
+- At step 4, if password does not match
+- System returns 401 with error message "Invalid credentials"
+- System logs failed attempt for security monitoring
+
+### E3: Account locked
+- At step 3, if user account status is "locked"
+- System returns 403 with error message "Account is locked"
+
+## Postconditions
+- User receives valid JWT token (success case)
+- Failed attempt is logged (failure cases)
+
+## NFR references
+- Response time: < 2 seconds (REQ-NF-001)
+- Rate limit: 5 attempts per minute per IP (REQ-NF-042)
+```
+
+## Pipeline integration
+
+This skill is **Step 2** of the SDD pipeline:
+
+```
+requirements-engineer → requirements/REQUIREMENTS.md
+        ↓
+specifications-engineer → spec/ (THIS SKILL)
+        ↓
+spec-auditor → audits/AUDIT-BASELINE.md
+```
+
+**Input**: `requirements/REQUIREMENTS.md`
+
+**Output**: Complete `spec/` directory
+
+**Next step**: Run spec-auditor to validate the generated specifications

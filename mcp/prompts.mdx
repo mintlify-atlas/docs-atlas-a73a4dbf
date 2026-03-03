@@ -1,0 +1,118 @@
+---
+title: Workflow prompts
+description: Guided multi-step workflows using the MCP server tools
+---
+
+The MCP server provides 2 named prompts that guide multi-step operations. Prompts generate structured instructions that combine tool calls and resource access.
+
+## analyze_impact
+
+**Description**: Pre-change workflow — understand an artifact's current state, assess blast radius, verify chain integrity, and recommend cascade strategy.
+
+<ParamField path="artifact_id" type="string" required>
+  The artifact ID to analyze before changing
+</ParamField>
+
+### Workflow steps
+
+This prompt generates instructions to:
+
+1. **Get full context**: Call `sdd_context({ artifact_id })` to review the artifact definition, coverage status, and any gaps
+
+2. **Assess blast radius**: Call `sdd_impact({ artifact_id, direction: "downstream", maxDepth: 3 })` to understand:
+   - Depth 1 = WILL_BREAK (direct dependents)
+   - Depth 2 = LIKELY_AFFECTED (indirect dependents)
+   - Depth 3 = MAY_NEED_REVIEW (transitive dependents)
+
+3. **Verify chain integrity**: Call `sdd_trace({ artifact_id })` to check for breaks in the REQ→UC→WF→API→BDD→TASK→COMMIT→CODE→TEST chain
+
+4. **Synthesize recommendation** including:
+   - Risk level (LOW/MEDIUM/HIGH)
+   - Affected pipeline stages
+   - Recommended cascade strategy (auto/manual/dry-run)
+   - Specific artifacts to review
+
+### Example usage
+
+When invoked with:
+
+```json
+{
+  "artifact_id": "REQ-AUTH-001"
+}
+```
+
+The prompt generates a user message with complete instructions for analyzing the impact of changing `REQ-AUTH-001`.
+
+### Use cases
+
+- Before modifying a requirement that's already implemented
+- Before deprecating an API endpoint
+- Before changing a use case with downstream dependencies
+- As part of a change impact assessment process
+
+## generate_status_report
+
+**Description**: Pipeline health report — current state, coverage gaps, priority actions, and overall assessment.
+
+**Parameters**: None
+
+### Workflow steps
+
+This prompt generates instructions to:
+
+1. **Read pipeline status**: Access resource `sdd://pipeline/status` for current stage, staleness, and recommended next action
+
+2. **Analyze coverage**: Call `sdd_coverage({})` to get coverage by domain and layer, plus uncovered requirements
+
+3. **Read coverage gaps**: Access resource `sdd://coverage/gaps` for priority gaps ordered by severity
+
+4. **Read graph stats**: Access resource `sdd://graph/stats` for total artifacts, relationships, and orphans
+
+5. **Synthesize the report** including:
+   - Pipeline health assessment (Healthy/Warning/Critical)
+   - Coverage summary per domain
+   - Top 5 priority actions
+   - Stale stages needing re-run
+
+### Use cases
+
+- Daily standup check-ins
+- Sprint planning preparation
+- Traceability audit reports
+- Stakeholder status updates
+- Identifying technical debt hotspots
+
+## Using prompts in conversations
+
+In MCP-enabled conversations, you can invoke prompts by name:
+
+```
+"Run the analyze_impact prompt for REQ-AUTH-001"
+"Generate a status report using the generate_status_report prompt"
+```
+
+The MCP client will fetch the prompt template, populate any arguments, and inject the generated instructions into the conversation.
+
+## Custom workflows
+
+You can also manually combine tools and resources to create custom workflows:
+
+**Example: Find and fix orphaned artifacts**
+
+1. Access `sdd://graph/stats` to see orphan count
+2. Call `sdd_query({ query: "*", limit: 100 })` to get all artifacts
+3. Filter for artifacts with no upstream/downstream relationships
+4. For each orphan, call `sdd_context({ artifact_id })` to understand why it's isolated
+5. Decide whether to delete, merge, or link the orphan
+
+**Example: Coverage improvement sprint**
+
+1. Call `sdd_coverage({ domain: "Security & Auth" })`
+2. Access `sdd://coverage/gaps` for specific gap details
+3. For each gap, call `sdd_trace({ artifact_id })` to see the chain status
+4. Prioritize gaps by:
+   - Business domain importance
+   - Severity (CRITICAL > HIGH > MEDIUM > LOW)
+   - Effort to close (1 missing link > 4 missing links)
+5. Create tasks to close the top 5 gaps

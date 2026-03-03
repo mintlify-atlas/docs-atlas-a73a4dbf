@@ -1,0 +1,556 @@
+---
+title: Brownfield skills reference
+description: Skills for adopting SDD in existing projects with code or documentation
+---
+
+# Brownfield skills reference
+
+Brownfield skills enable SDD adoption in existing projects by extracting artifacts from code, documentation, or detecting project state.
+
+---
+
+## onboarding
+
+Diagnoses project state and generates a customized SDD adoption plan.
+
+### Invocation
+
+```bash
+/sdd:onboarding                                       # Full diagnostic
+/sdd:onboarding --quick                               # Quick scan (skip deep analysis)
+/sdd:onboarding --reassess                            # Re-evaluate after partial adoption
+```
+
+### Detection phases
+
+<ParamField path="Phase 1" type="phase">
+  Environment check
+  
+  Detects: project root, language/framework, package manager, CI/CD, containerization, git history
+</ParamField>
+
+<ParamField path="Phase 2" type="phase">
+  SDD artifact scan
+  
+  Scans: `pipeline-state.json`, all SDD directories, key files, cross-references, modification dates
+</ParamField>
+
+<ParamField path="Phase 3" type="phase">
+  Non-SDD documentation scan
+  
+  Finds: README, docs/, API specs (OpenAPI, GraphQL), external tool exports (Jira, Notion), architecture docs
+</ParamField>
+
+<ParamField path="Phase 4" type="phase">
+  Code & test analysis
+  
+  Analyzes: file counts, architectural layers, design patterns, test framework, test coverage, code quality signals
+</ParamField>
+
+<ParamField path="Phase 5" type="phase">
+  Scenario classification
+  
+  Classifies into 1 of 8 scenarios using weighted signal matrix
+</ParamField>
+
+<ParamField path="Phase 6" type="phase">
+  Health score estimation
+  
+  Scores (0-100): requirements coverage, specification coverage, test coverage, architecture docs, traceability, code quality, pipeline state
+</ParamField>
+
+<ParamField path="Phase 7" type="phase">
+  Action plan generation
+  
+  Generates step-by-step plan with effort estimates and health score progression
+</ParamField>
+
+### 8 scenarios
+
+<ParamField path="Scenario 1" type="scenario">
+  **Greenfield** — No code, no docs
+  
+  **Action:** Standard pipeline from `requirements-engineer`
+</ParamField>
+
+<ParamField path="Scenario 2" type="scenario">
+  **Brownfield bare** — Code exists, no docs, no tests
+  
+  **Action:** `reverse-engineer` full
+</ParamField>
+
+<ParamField path="Scenario 3" type="scenario">
+  **SDD drift** — SDD artifacts + code diverged
+  
+  **Action:** `reconcile`
+</ParamField>
+
+<ParamField path="Scenario 4" type="scenario">
+  **Partial SDD** — Some SDD artifacts, incomplete pipeline
+  
+  **Action:** Resume pipeline from gap
+</ParamField>
+
+<ParamField path="Scenario 5" type="scenario">
+  **Brownfield with docs** — Code + non-SDD docs
+  
+  **Action:** `import` → `reverse-engineer` → `reconcile`
+</ParamField>
+
+<ParamField path="Scenario 6" type="scenario">
+  **Tests-as-spec** — Good tests, poor/no docs
+  
+  **Action:** `reverse-engineer` with test-first strategy
+</ParamField>
+
+<ParamField path="Scenario 7" type="scenario">
+  **Multi-team** — Monorepo/microservices, mixed states
+  
+  **Action:** Per-module assessment, phased adoption
+</ParamField>
+
+<ParamField path="Scenario 8" type="scenario">
+  **Fork/migration** — Forked from another project
+  
+  **Action:** Assess upstream, `import`/`reverse-engineer` delta
+</ParamField>
+
+### Health score dimensions
+
+<ParamField path="Requirements coverage" type="dimension" weight="20">
+  0=none, 10=informal docs, 20=SDD format
+</ParamField>
+
+<ParamField path="Specification coverage" type="dimension" weight="20">
+  0=none, 10=partial specs, 20=full spec/
+</ParamField>
+
+<ParamField path="Test coverage" type="dimension" weight="15">
+  0=none, 8=some tests, 15=good coverage+plan
+</ParamField>
+
+<ParamField path="Architecture documentation" type="dimension" weight="15">
+  0=none, 8=README/diagrams, 15=SDD plan/
+</ParamField>
+
+<ParamField path="Traceability" type="dimension" weight="15">
+  0=none, 8=partial refs, 15=full chain
+</ParamField>
+
+<ParamField path="Code quality signals" type="dimension" weight="10">
+  0=none, 5=linter, 10=types+linter+CI
+</ParamField>
+
+<ParamField path="Pipeline state" type="dimension" weight="5">
+  0=none, 3=partial, 5=complete pipeline-state.json
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="onboarding/ONBOARDING-REPORT.md" type="file">
+  Diagnostic report
+  
+  **Sections:**
+  - Executive summary (scenario, health score, recommendation)
+  - Environment profile
+  - Current state assessment
+  - Scenario classification with evidence
+  - Health score breakdown
+  - Action plan (step-by-step with effort estimates)
+  - Risk factors and next steps
+</ParamField>
+
+---
+
+## reverse-engineer
+
+Extracts SDD artifacts from existing codebase.
+
+### Invocation
+
+```bash
+/sdd:reverse-engineer                                 # Full reverse engineering
+/sdd:reverse-engineer --scope=src/api,src/models      # Scope to paths
+/sdd:reverse-engineer --inventory-only                # Quick assessment
+/sdd:reverse-engineer --findings-only                 # Document code health only
+```
+
+### Execution phases
+
+<ParamField path="Phase 1" type="phase">
+  Pre-flight
+  
+  Validates environment, checks for existing SDD artifacts, detects language/framework, identifies scope
+</ParamField>
+
+<ParamField path="Phase 2" type="phase">
+  Scan & inventory
+  
+  Builds complete codebase map: files by language, module dependency graph, architectural layers, design patterns, database schema, test structure
+</ParamField>
+
+<ParamField path="Phase 3" type="phase">
+  Code analysis
+  
+  Extracts: entities, routes/endpoints, state machines, invariants, dependencies, dead code, tech debt, workarounds, implicit rules, infrastructure patterns
+</ParamField>
+
+<ParamField path="Phase 4" type="phase">
+  Test analysis
+  
+  Parses test files: structure, assertions → invariants, setup/teardown → preconditions, mocks → external contracts, test data → boundaries
+</ParamField>
+
+<ParamField path="Phase 5" type="phase">
+  Requirements extraction
+  
+  Generates EARS-format requirements from: routes → functional requirements, validations → constraints, auth patterns → security requirements, performance configs → NFRs
+</ParamField>
+
+<ParamField path="Phase 6" type="phase">
+  Specification generation
+  
+  Generates complete `spec/` directory: domain model, use cases, workflows, API contracts, NFRs, ADRs
+</ParamField>
+
+<ParamField path="Phase 7" type="phase">
+  Test plan mapping
+  
+  Maps existing tests to requirements, identifies coverage gaps, generates `test/TEST-PLAN.md`
+</ParamField>
+
+<ParamField path="Phase 8" type="phase">
+  Plan reconstruction
+  
+  Generates `plan/ARCHITECTURE.md` and `plan/PLAN.md` from detected architecture
+</ParamField>
+
+<ParamField path="Phase 9" type="phase">
+  Task reconstruction
+  
+  Generates retroactive task files documenting already-implemented features with `[RETROACTIVE]` markers
+</ParamField>
+
+<ParamField path="Phase 10" type="phase">
+  Traceability mapping & findings
+  
+  Builds full traceability chain, compiles findings report with markers
+</ParamField>
+
+### Findings markers
+
+<ParamField path="[DEAD-CODE]" type="marker">
+  Unreachable or unused code
+  
+  **Severity:** INFO — MEDIUM
+</ParamField>
+
+<ParamField path="[TECH-DEBT]" type="marker">
+  Suboptimal implementation requiring future work
+  
+  **Severity:** LOW — HIGH
+</ParamField>
+
+<ParamField path="[WORKAROUND]" type="marker">
+  Temporary fix or hack
+  
+  **Severity:** MEDIUM — HIGH
+</ParamField>
+
+<ParamField path="[INFRASTRUCTURE]" type="marker">
+  Cross-cutting concern pattern
+  
+  **Severity:** INFO
+</ParamField>
+
+<ParamField path="[ORPHAN]" type="marker">
+  Code with no traceable requirement
+  
+  **Severity:** LOW — MEDIUM
+</ParamField>
+
+<ParamField path="[INFERRED]" type="marker">
+  Artifact derived from code patterns, not explicit docs
+  
+  **Severity:** INFO
+</ParamField>
+
+<ParamField path="[IMPLICIT-RULE]" type="marker">
+  Business rule embedded in code without documentation
+  
+  **Severity:** MEDIUM — HIGH
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="requirements/REQUIREMENTS.md" type="file">
+  Extracted requirements in EARS format with `[INFERRED]` tags
+</ParamField>
+
+<ParamField path="spec/" type="directory">
+  Complete specification directory generated from code
+</ParamField>
+
+<ParamField path="test/" type="directory">
+  Test plan and matrices
+</ParamField>
+
+<ParamField path="plan/" type="directory">
+  Reconstructed architecture and plans
+</ParamField>
+
+<ParamField path="task/" type="directory">
+  Retroactive task files with `[RETROACTIVE]` markers
+</ParamField>
+
+<ParamField path="findings/FINDINGS-REPORT.md" type="file">
+  Code health report with dead code, tech debt, workarounds catalogued by marker
+</ParamField>
+
+<ParamField path="reverse-engineering/" type="directory">
+  Intermediate outputs: INVENTORY.md, ANALYSIS.md, TEST-ANALYSIS.md
+</ParamField>
+
+---
+
+## reconcile
+
+Detects drift between specifications and code, then aligns specs to match reality.
+
+### Invocation
+
+```bash
+/sdd:reconcile                                        # Full reconciliation
+/sdd:reconcile --dry-run                              # Detect only, no changes
+/sdd:reconcile --scope=src/api,src/models             # Scope to paths
+/sdd:reconcile --code-wins                            # All divergences → update specs
+```
+
+### Divergence types
+
+<ParamField path="NEW_FUNCTIONALITY" type="divergence">
+  Code exists without spec; has tests or is actively used
+  
+  **Resolution:** Auto — Update specs (code wins)
+</ParamField>
+
+<ParamField path="REMOVED_FEATURE" type="divergence">
+  Spec exists without code; no recent commits
+  
+  **Resolution:** Auto — Deprecate in specs (code wins)
+</ParamField>
+
+<ParamField path="BEHAVIORAL_CHANGE" type="divergence">
+  Both exist but behavior differs
+  
+  **Resolution:** Ask user — Is code correct or is it a bug?
+</ParamField>
+
+<ParamField path="REFACTORING" type="divergence">
+  Structure changed but behavior equivalent (tests pass)
+  
+  **Resolution:** Auto — Update technical specs only
+</ParamField>
+
+<ParamField path="BUG_OR_DEFECT" type="divergence">
+  Code contradicts spec AND tests fail or missing
+  
+  **Resolution:** Ask user — Fix code or update spec?
+</ParamField>
+
+<ParamField path="AMBIGUOUS" type="divergence">
+  Cannot determine type with confidence
+  
+  **Resolution:** Ask user — Classify manually
+</ParamField>
+
+### Execution phases
+
+<ParamField path="Phase 1" type="phase">
+  Context loading
+  
+  Loads all SDD artifacts, verifies source code exists, builds spec artifact index
+</ParamField>
+
+<ParamField path="Phase 2" type="phase">
+  Code scan
+  
+  Analyzes current code: endpoints, entities, business logic, integrations, configuration. Builds code feature index. Maps code features to spec artifacts via `Refs:` comments and naming conventions. Enriches with SDD MCP server data if available.
+</ParamField>
+
+<ParamField path="Phase 3" type="phase">
+  Spec-code comparison
+  
+  Compares: API contracts (method, path, params, schemas), business rules (validations, thresholds), state machines (states, transitions), domain model (fields, types, relationships). Detects spec without code, code without spec, behavioral differences.
+</ParamField>
+
+<ParamField path="Phase 4" type="phase">
+  Divergence classification
+  
+  Classifies each divergence using deterministic rules. Assigns confidence: HIGH, MEDIUM, LOW.
+</ParamField>
+
+<ParamField path="Phase 5" type="phase">
+  Reconciliation plan
+  
+  Groups divergences by type, prepares spec changes for auto-resolvable, prepares questions for user-decision types, calculates pipeline cascade impact.
+</ParamField>
+
+<ParamField path="Phase 6" type="phase">
+  User review
+  
+  Presents summary, for each user-decision item presents options with recommendation. In `--code-wins` mode: skip this phase.
+</ParamField>
+
+<ParamField path="Phase 7" type="phase">
+  Apply changes
+  
+  For NEW_FUNCTIONALITY: adds specs marked `[RECONCILED]`. For REMOVED_FEATURE: marks specs `[DEPRECATED]`. For REFACTORING: updates technical references. For user-decided: applies chosen resolution.
+</ParamField>
+
+<ParamField path="Phase 8" type="phase">
+  Pipeline state update
+  
+  Recalculates hashes, marks affected stages as stale, updates `pipeline-state.json`, generates reconciliation report.
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="reconciliation/RECONCILIATION-REPORT.md" type="file">
+  Drift detection report
+  
+  **Sections:**
+  - Executive summary (divergence counts by type)
+  - Detailed divergence listing with classification evidence
+  - Actions taken (auto-resolved and user-decided)
+  - Pending items (deferred decisions, defect tasks)
+  - Pipeline cascade impact
+  - Traceability chain changes
+</ParamField>
+
+<ParamField path="requirements/REQUIREMENTS.md" type="file">
+  Updated with new requirements or deprecations
+</ParamField>
+
+<ParamField path="spec/" type="directory">
+  Updated specifications reflecting code reality
+</ParamField>
+
+---
+
+## import
+
+Converts external documentation to SDD format.
+
+### Invocation
+
+```bash
+/sdd:import path/to/file.yaml                         # Auto-detect format
+/sdd:import path/to/export.csv --format=jira          # Explicit format
+/sdd:import path/to/api.yaml --target=specs           # Target artifact type
+/sdd:import path/to/requirements.csv --merge          # Merge with existing
+```
+
+### Supported formats
+
+<ParamField path="Jira" type="format">
+  **Extensions:** `.json`, `.csv`
+  
+  **Maps to:** Epics → requirement groups, Stories → use cases, Bugs → defect tracking, Tasks → implementation notes
+</ParamField>
+
+<ParamField path="OpenAPI/Swagger" type="format">
+  **Extensions:** `.yaml`, `.json`
+  
+  **Maps to:** Paths → API contracts, Schemas → domain model, Security → NFRs, Descriptions → requirements
+</ParamField>
+
+<ParamField path="Markdown" type="format">
+  **Extensions:** `.md`
+  
+  **Maps to:** Headings → requirement sections, Lists → individual requirements, Code blocks → technical specs
+</ParamField>
+
+<ParamField path="Notion" type="format">
+  **Extensions:** `.md` (with metadata), `.csv`
+  
+  **Maps to:** Database rows → requirements, Pages → specifications, Properties → requirement attributes
+</ParamField>
+
+<ParamField path="CSV" type="format">
+  **Extensions:** `.csv`
+  
+  **Maps to:** Columns → requirement fields, Rows → individual requirements
+</ParamField>
+
+<ParamField path="Excel" type="format">
+  **Extensions:** `.xlsx`
+  
+  **Maps to:** Sheets → artifact types, Rows → individual items, Named columns → requirement fields
+</ParamField>
+
+### Execution phases
+
+<ParamField path="Phase 1" type="phase">
+  Format detection
+  
+  Identifies format via extension and content markers, validates format compatibility
+</ParamField>
+
+<ParamField path="Phase 2" type="phase">
+  Parse input
+  
+  Parses files into normalized intermediate representation with: items, metadata, parse errors, skipped items
+</ParamField>
+
+<ParamField path="Phase 3" type="phase">
+  Mapping preview
+  
+  Applies format-specific rules, converts descriptions to EARS, detects duplicates (if `--merge`), generates preview for confirmation
+</ParamField>
+
+<ParamField path="Phase 4" type="phase">
+  User confirmation
+  
+  Presents mapping preview, handles duplicates (Skip/Merge/Replace), resolves ambiguities, confirms skipped items
+</ParamField>
+
+<ParamField path="Phase 5" type="phase">
+  Generate SDD artifacts
+  
+  Generates requirements and/or specifications marked `[IMPORTED]`. Applies merge logic if `--merge`.
+</ParamField>
+
+<ParamField path="Phase 6" type="phase">
+  Quality check
+  
+  Verifies completeness, consistency, traceability readiness. Generates quality metrics.
+</ParamField>
+
+<ParamField path="Phase 7" type="phase">
+  Pipeline state update
+  
+  Updates `pipeline-state.json`, generates import report
+</ParamField>
+
+### Output artifacts
+
+<ParamField path="import/IMPORT-REPORT.md" type="file">
+  Import summary
+  
+  **Sections:**
+  - Source files and formats
+  - Import statistics (parsed, mapped, skipped, errors)
+  - Mapping summary (original → SDD)
+  - Quality assessment
+  - Items needing manual review
+  - Pipeline state impact
+</ParamField>
+
+<ParamField path="requirements/REQUIREMENTS.md" type="file">
+  (if `--target=requirements` or `--target=both`) Generated or merged requirements with `[IMPORTED]` markers
+</ParamField>
+
+<ParamField path="spec/" type="directory">
+  (if `--target=specs` or `--target=both`) Generated or merged specifications
+</ParamField>

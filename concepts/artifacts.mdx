@@ -1,0 +1,670 @@
+---
+title: Artifact types and structure
+description: Understanding the artifacts produced by each pipeline stage and their canonical structure
+---
+
+The SDD pipeline produces structured artifacts at each stage. All artifacts are markdown files stored in git, making them versionable, reviewable, and auditable.
+
+## Artifact directory structure
+
+After running the pipeline, your project contains:
+
+```
+your-project/
+├── pipeline-state.json          # Pipeline progress tracking
+├── requirements/                # Stage 1 output
+│   └── REQUIREMENTS.md
+├── spec/                        # Stage 2 output
+│   ├── README.md
+│   ├── domain/
+│   │   ├── 01-GLOSSARY.md
+│   │   ├── 02-ENTITIES.md
+│   │   ├── 03-VALUE-OBJECTS.md
+│   │   ├── 04-STATES.md
+│   │   └── 05-INVARIANTS.md
+│   ├── use-cases/
+│   │   └── UC-NNN-{slug}.md
+│   ├── workflows/
+│   │   └── WF-NNN-{slug}.md
+│   ├── contracts/
+│   │   ├── API-{module}.md
+│   │   ├── EVENTS-{module}.md
+│   │   └── PERMISSIONS-MATRIX.md
+│   ├── adr/
+│   │   └── ADR-NNN-{slug}.md
+│   ├── tests/
+│   │   ├── BDD-UC-NNN.md
+│   │   └── PROPERTY-TESTS.md
+│   ├── nfr/
+│   │   ├── PERFORMANCE.md
+│   │   ├── LIMITS.md
+│   │   ├── SECURITY.md
+│   │   └── OBSERVABILITY.md
+│   ├── runbooks/
+│   │   └── RB-NNN-{slug}.md
+│   └── CLARIFICATIONS.md
+├── audits/                      # Stage 3 output
+│   ├── AUDIT-BASELINE.md
+│   └── CORRECTIONS-PLAN-*.md
+├── test/                        # Stage 4 output
+│   ├── TEST-PLAN.md
+│   ├── TEST-MATRIX-UC-*.md
+│   └── PERF-SCENARIOS.md
+├── plan/                        # Stage 5 output
+│   ├── fases/
+│   │   ├── README.md
+│   │   └── FASE-*.md
+│   ├── PLAN.md
+│   ├── ARCHITECTURE.md
+│   ├── CLARIFY-LOG.md
+│   ├── RESEARCH.md
+│   └── fase-plans/
+│       └── PLAN-FASE-*.md
+├── task/                        # Stage 6 output
+│   ├── TASK-INDEX.md
+│   ├── TASK-ORDER.md
+│   └── TASK-FASE-*.md
+├── src/                         # Stage 7 output
+├── tests/                       # Stage 7 output
+├── feedback/                    # Stage 7 output
+│   └── IMPL-FEEDBACK-FASE-*.md
+└── dashboard/                   # Utility output
+    ├── index.html
+    ├── guide.html
+    └── traceability-graph.json
+```
+
+## Stage 1: Requirements artifacts
+
+### REQUIREMENTS.md
+
+**Location:** `requirements/REQUIREMENTS.md`
+
+**Purpose:** Structured requirements document with EARS syntax, acceptance criteria, and traceability.
+
+**Structure:**
+
+```markdown
+# Requirements Document
+
+> **Project:** {name}
+> **Version:** {X.Y}
+> **Last updated:** {YYYY-MM-DD}
+> **Status:** Draft | Review | Approved
+
+## Functional Requirements
+
+### REQ-F-001: {Title}
+- **Statement:** WHEN {trigger} THE {system} SHALL {behavior}
+- **Category:** Functional
+- **Priority:** Must have | Should have | Nice to have
+- **Source:** {stakeholder}
+- **Rationale:** {why this requirement exists}
+- **Acceptance criteria:**
+  - GIVEN {context} WHEN {action} THEN {outcome}
+  - GIVEN {context} WHEN {action} THEN {outcome}
+- **Dependencies:** {REQ-F-NNN, or "None"}
+
+## Nonfunctional Requirements
+
+### REQ-NF-001: {Title}
+- **Statement:** THE {system} SHALL {behavior} {quantified constraint}
+- **Category:** Performance | Security | Scalability | Availability | Usability
+- **Priority:** Must have | Should have | Nice to have
+- **Metric:** {measurable target, e.g., "p99 < 200ms"}
+- **Acceptance criteria:**
+  - GIVEN {load condition} WHEN {action} THEN {measurable outcome}
+
+## Constraints
+
+### REQ-C-001: {Title}
+- **Statement:** {constraint description}
+- **Type:** Technical | Business | Regulatory
+- **Source:** {origin}
+
+## Traceability
+
+| REQ ID | Type | Priority | Source | Acceptance Criteria |
+|--------|------|----------|--------|---------------------|
+| REQ-F-001 | Functional | Must | {source} | Yes |
+```
+
+**ID patterns:**
+- `REQ-F-NNN` — Functional requirements (001, 002, ...)
+- `REQ-NF-NNN` — Nonfunctional requirements
+- `REQ-C-NNN` — Constraints
+
+## Stage 2: Specification artifacts
+
+### Domain model
+
+#### 01-GLOSSARY.md
+
+**Location:** `spec/domain/01-GLOSSARY.md`
+
+**Purpose:** Ubiquitous language — canonical terms with definitions. All other artifacts must use ONLY these terms.
+
+**Structure:**
+
+```markdown
+# Glossary
+
+## Terms
+
+### Extraction
+**Definition:** A single PDF-to-text processing job initiated by an Organization.
+**Aliases:** None (never use "job", "task", "process")
+**Related:** Organization, ExtractionStatus
+
+### Organization
+**Definition:** A tenant in the multi-tenant system. All data is scoped to an Organization.
+**Aliases:** Tenant, Account
+**Related:** User, ApiKey, Extraction
+```
+
+#### 02-ENTITIES.md
+
+**Location:** `spec/domain/02-ENTITIES.md`
+
+**Purpose:** Domain entities with attributes, relationships, and constraints.
+
+**Structure:**
+
+```markdown
+# Entities
+
+## User
+
+**Description:** A person who belongs to an Organization and has a Role.
+
+**Attributes:**
+| Attribute | Type | Required | Constraint |
+|-----------|------|----------|------------|
+| id | UUID | Yes | Primary key |
+| email | Email | Yes | Unique per organization |
+| password_hash | HashedPassword | Yes | bcrypt hash |
+| role | Role | Yes | admin, user, readonly |
+| org_id | UUID | Yes | Foreign key: Organization |
+| created_at | Timestamp | Yes | Auto-generated |
+| suspended_at | Timestamp | No | Null if active |
+
+**Relationships:**
+- Belongs to: Organization (many-to-one)
+- Has many: ApiKey (one-to-many)
+
+**Invariants:**
+- INV-SYS-001: User.org_id must match the request context org_id (tenant isolation)
+- INV-USR-001: User.email unique within Organization
+```
+
+#### 03-VALUE-OBJECTS.md
+
+**Location:** `spec/domain/03-VALUE-OBJECTS.md`
+
+**Purpose:** Value objects, enums, and typed values with validation rules.
+
+#### 04-STATES.md
+
+**Location:** `spec/domain/04-STATES.md`
+
+**Purpose:** State machines for all stateful entities.
+
+**Structure:**
+
+```markdown
+# State Machines
+
+## ExtractionStatus
+
+**States:**
+- `pending` — Initial state after creation
+- `processing` — LLM extraction in progress
+- `completed` — Success
+- `failed` — Error (retryable)
+- `aborted` — Cancelled by user
+
+**Transitions:**
+| From | To | Event | Guard |
+|------|----|----|-------|
+| pending | processing | extraction.started | — |
+| processing | completed | extraction.succeeded | — |
+| processing | failed | extraction.failed | retry_count < 3 |
+| failed | processing | extraction.retried | — |
+| failed | aborted | extraction.cancelled | — |
+| processing | aborted | extraction.cancelled | — |
+
+**Invalid transitions:** All others are forbidden and must return error.
+```
+
+#### 05-INVARIANTS.md
+
+**Location:** `spec/domain/05-INVARIANTS.md`
+
+**Purpose:** Business rules as formal invariants with validation and enforcement.
+
+**Structure:**
+
+```markdown
+# Invariants
+
+## INV-SYS-001: Tenant Isolation
+
+**Rule:** All database queries MUST filter by org_id from authenticated context.
+
+**Validation:**
+- Database constraint: `CHECK (org_id = current_setting('app.org_id')::uuid)`
+- Middleware: Set session context before any query
+
+**Enforcement:** Middleware + database constraint
+
+**Tests:** Property test: "No query can read data from other org_id"
+```
+
+**ID pattern:** `INV-{PREFIX}-{NNN}` where PREFIX = SYS (system), SEC (security), USR (user), EXT (extraction), etc.
+
+### Use cases
+
+#### UC-NNN-{slug}.md
+
+**Location:** `spec/use-cases/UC-*.md`
+
+**Purpose:** Structured use case with normal/exception flows.
+
+**Structure:**
+
+```markdown
+# UC-005: Upload CV
+
+**Implements:** REQ-F-015, REQ-NF-042
+**Actors:** User, System
+**Preconditions:** User is authenticated
+**Postconditions:** CV is stored and validated
+
+## Main Flow
+
+1. User selects CV file from device
+2. System validates file format (PDF, DOCX, TXT)
+3. System validates file size <= 10MB
+4. System uploads file to storage
+5. System creates CVAnalysis record with status=pending
+6. System returns analysis_id to User
+
+## Exception Flows
+
+### EXC-1: Invalid File Format
+- **Trigger:** Step 2 fails
+- **Response:** Return 400 with error code ERR-CV-001
+- **Invariants:** INV-CVA-001
+
+## Invariants
+- INV-CVA-001: File format in [pdf, docx, txt]
+- INV-CVA-002: File size <= 10MB
+
+## API
+- POST /api/v1/cv (API-cv)
+
+## Tests
+- BDD-UC-005
+```
+
+### Workflows
+
+#### WF-NNN-{slug}.md
+
+**Location:** `spec/workflows/WF-*.md`
+
+**Purpose:** Multi-step processes spanning multiple use cases.
+
+### Contracts
+
+#### API-{module}.md
+
+**Location:** `spec/contracts/API-*.md`
+
+**Purpose:** REST/GraphQL API contracts per module.
+
+**Structure:**
+
+```markdown
+# API Contract: auth
+
+## POST /api/v1/auth/login
+
+**Implements:** UC-002
+**Requires auth:** No
+**Rate limit:** 10 req/min per IP (ADR-025)
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "plaintext"
+}
+```
+
+**Response (200):**
+```json
+{
+  "token": "jwt-token",
+  "user_id": "uuid",
+  "org_id": "uuid",
+  "role": "admin"
+}
+```
+
+**Errors:**
+- 400: ERR-AUTH-001 — Invalid credentials
+- 429: ERR-RATE-001 — Rate limit exceeded
+
+**Invariants:**
+- INV-SEC-003: All endpoints except /login require auth
+```
+
+### Architecture Decision Records
+
+#### ADR-NNN-{slug}.md
+
+**Location:** `spec/adr/ADR-*.md`
+
+**Purpose:** Document architecture decisions with context and consequences.
+
+**Structure:**
+
+```markdown
+# ADR-025: Rate Limiting Strategy
+
+**Status:** Accepted
+**Date:** 2026-03-01
+**Deciders:** Engineering team
+
+## Context
+We need to prevent abuse and ensure fair usage across tenants.
+
+## Decision
+Implement rate limiting using Cloudflare KV with token bucket algorithm.
+
+**Limits:**
+- Burst: 100 req/min per session
+- Sustained: 1000 req/h per user
+- Response: 429 with Retry-After header
+
+## Consequences
+**Positive:**
+- No additional infrastructure (uses existing KV)
+- Low latency (<5ms overhead)
+
+**Negative:**
+- KV eventual consistency may allow brief limit exceeding
+```
+
+## Stage 3: Audit artifacts
+
+### AUDIT-BASELINE.md
+
+**Location:** `audits/AUDIT-BASELINE.md`
+
+**Purpose:** Audit report with findings, severity, and resolution questions.
+
+**Structure:**
+
+```markdown
+# Audit Report
+
+> **Fecha:** YYYY-MM-DD
+> **Versión specs auditada:** X.Y.Z
+> **Documentos analizados:** {N}
+
+## 3C Spec Verification
+
+| Dimension    | Pass | Fail | Verdict |
+|--------------|------|------|---------|
+| Completeness | 10/10 | 0 | PASS |
+| Correctness  | 9/10 | 1 | FAIL |
+| Coherence    | 10/10 | 0 | PASS |
+
+**Gate:** FAIL — resolve before proceeding
+
+## Resumen Ejecutivo
+
+| Categoría | Hallazgos | Críticos | Altos | Medios | Bajos |
+|-----------|-----------|----------|-------|--------|-------|
+| Ambigüedades | 3 | 1 | 2 | 0 | 0 |
+| Contradicciones | 1 | 1 | 0 | 0 | 0 |
+| **TOTAL** | **4** | **2** | **2** | **0** | **0** |
+
+## Hallazgos por Categoría
+
+### CON-001: Timeout contradictorio
+
+| Campo | Valor |
+|-------|-------|
+| **Severidad** | Crítico |
+| **Ubicación** | nfr/LIMITS.md:34, workflows/WF-001.md:67 |
+| **Problema** | LIMITS.md define timeout 180s, WF-001 define 360s |
+| **Pregunta** | ¿Cuál es el valor correcto? |
+| **Docs relacionados** | CLARIFICATIONS.md |
+```
+
+## Stage 4: Test artifacts
+
+### TEST-PLAN.md
+
+**Location:** `test/TEST-PLAN.md`
+
+**Purpose:** Master test strategy with coverage targets and test level definitions.
+
+### TEST-MATRIX-UC-{NNN}.md
+
+**Location:** `test/TEST-MATRIX-UC-*.md`
+
+**Purpose:** Detailed input/output matrices for complex use cases using equivalence partitioning, boundary value analysis, and decision tables.
+
+### PERF-SCENARIOS.md
+
+**Location:** `test/PERF-SCENARIOS.md`
+
+**Purpose:** Performance test scenarios (smoke, load, stress, soak, spike) derived from NFR targets.
+
+## Stage 5: Plan artifacts
+
+### FASE-{N}-{slug}.md
+
+**Location:** `plan/fases/FASE-*.md`
+
+**Purpose:** Navigation index for an implementation phase. Maps specs to a phase with success criteria and verification steps.
+
+**Structure:**
+
+```markdown
+# FASE-0: Bootstrap Técnico
+
+**Estado:** pending | in_progress | completed
+**Dependencias:** None
+**Valor Observable:** Sistema inicializado, health endpoint responde
+
+## Objetivo
+Establecer infraestructura técnica base: proyecto, dependencias, configuración.
+
+## Criterios de Éxito
+- [ ] Proyecto inicializado con wrangler
+- [ ] TypeScript configurado
+- [ ] Health endpoint responde
+
+## Specs a Leer
+
+### Use Cases
+- UC-001: Health Check
+
+### Domain
+- domain/01-GLOSSARY.md (completo)
+
+### Contracts
+- API-health.md
+
+### ADRs
+- ADR-001: Tech Stack
+- ADR-036: Cloudflare Workers
+
+## Invariantes Aplicables
+- INV-SYS-003: Auth required (except health)
+
+## Contratos Resultantes
+- GET /health
+
+## Verificación
+```bash
+curl http://localhost:8787/health
+# Expected: {"status": "ok"}
+```
+```
+
+### PLAN.md
+
+**Location:** `plan/PLAN.md`
+
+**Purpose:** Master implementation plan with technical context, component decomposition, cross-FASE concerns, risk assessment, and quickstart.
+
+### ARCHITECTURE.md
+
+**Location:** `plan/ARCHITECTURE.md`
+
+**Purpose:** Architecture views — C4 diagrams (system context, container, component), deployment view, physical data model, integration map, security architecture.
+
+### CLARIFY-LOG.md
+
+**Location:** `plan/CLARIFY-LOG.md`
+
+**Purpose:** Session log of interactive clarification Q&A with implementation decisions.
+
+## Stage 6: Task artifacts
+
+### TASK-FASE-{N}.md
+
+**Location:** `task/TASK-FASE-*.md`
+
+**Purpose:** All tasks for one FASE organized by internal phases (Setup, Foundation, Domain, Contracts, Integration, Tests, Verification).
+
+**Structure:**
+
+```markdown
+# Tasks: FASE-0 - Bootstrap
+
+> **Generated:** YYYY-MM-DD
+> **Total tasks:** 12
+
+## Phase 1: Setup
+
+- [ ] TASK-F0-001 [P] Create project structure | `wrangler.toml`, `package.json`
+  - **Commit:** `chore(bootstrap): initialize project structure`
+  - **Acceptance:**
+    - wrangler.toml parses correctly
+    - package.json defines valid project
+  - **Refs:** FASE-0, ADR-001
+  - **Revert:** SAFE
+  - **Review:**
+    - [ ] Compiles without errors
+    - [ ] Follows ubiquitous language
+    - [ ] No secrets in code
+
+- [ ] TASK-F0-002 Initialize TypeScript | `tsconfig.json`, `src/index.ts`
+  - **Commit:** `feat(bootstrap): initialize TypeScript project`
+  - **Acceptance:**
+    - TypeScript 5.x configured
+    - Strict mode enabled
+  - **Refs:** FASE-0, ADR-001
+  - **Revert:** SAFE
+  - **Review:**
+    - [ ] Compiles without errors
+    - [ ] Strict mode enabled
+```
+
+### TASK-INDEX.md
+
+**Location:** `task/TASK-INDEX.md`
+
+**Purpose:** Global index of all tasks across all FASEs with summary and traceability matrix.
+
+### TASK-ORDER.md
+
+**Location:** `task/TASK-ORDER.md`
+
+**Purpose:** Dependency graph, critical path, parallel opportunities, MVP strategy, and incremental delivery checkpoints.
+
+## Stage 7: Implementation artifacts
+
+### Source code (src/)
+
+**Location:** `src/`
+
+**Purpose:** Implementation code with `Refs:` annotations.
+
+**Example:**
+
+```typescript
+/**
+ * JWT authentication middleware
+ * @implements UC-002 User Authentication
+ * @satisfies INV-SYS-001 Tenant Isolation
+ * Refs: ADR-003
+ */
+export async function authMiddleware(c: Context, next: Next) {
+  // Implementation
+}
+```
+
+### Test code (tests/)
+
+**Location:** `tests/`
+
+**Purpose:** Unit, integration, and BDD tests with `Refs:` annotations.
+
+### Implementation feedback
+
+#### IMPL-FEEDBACK-FASE-{N}.md
+
+**Location:** `feedback/IMPL-FEEDBACK-FASE-*.md`
+
+**Purpose:** Spec-level issues found during implementation (ambiguities, conflicts, missing behavior, incorrect contracts).
+
+## Utility artifacts
+
+### traceability-graph.json
+
+**Location:** `dashboard/traceability-graph.json`
+
+**Purpose:** Complete artifact graph with nodes (all artifacts), edges (relationships), statistics (coverage metrics), and optional `codeIntelligence` data (symbols, call graph, processes).
+
+**Generated by:** `/sdd:dashboard`
+
+**Consumed by:** `/sdd:code-index`, MCP server tools (`sdd_query`, `sdd_impact`, `sdd_context`, etc.)
+
+### pipeline-state.json
+
+**Location:** `pipeline-state.json`
+
+**Purpose:** Pipeline progress tracking — which stages are complete, which are stale, next recommended action.
+
+**Auto-updated by:** Hook H3 (state-updater)
+
+## Artifact naming conventions
+
+All artifacts follow these naming rules:
+
+| Convention | Pattern | Example |
+|-----------|---------|----------|
+| Use cases | `UC-{NNN}-{slug}.md` | `UC-005-upload-cv.md` |
+| Workflows | `WF-{NNN}-{slug}.md` | `WF-001-extraction.md` |
+| ADRs | `ADR-{NNN}-{slug}.md` | `ADR-025-rate-limiting.md` |
+| FASE files | `FASE-{N}-{SLUG}.md` | `FASE-0-BOOTSTRAP.md` |
+| Task files | `TASK-FASE-{N}.md` | `TASK-FASE-0.md` |
+| Audit files | `AUDIT-{type}-{version}.md` | `AUDIT-BASELINE.md` |
+
+**Key rules:**
+- Use hyphens for slugs, not underscores
+- All caps for artifact type prefixes (REQ, UC, WF, ADR, TASK)
+- Sequential numbering with leading zeros (001, 002, ...)
+- Files are markdown (.md or .mdx) except JSON tracking files
+
+<Note>
+All artifacts are **versionable** (text-based), **auditable** (human-readable), and **traceable** (cross-referenced by ID patterns).
+</Note>

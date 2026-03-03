@@ -1,0 +1,111 @@
+---
+title: Pipeline status
+description: Real-time view of your SDD pipeline state with artifact verification and recommended next actions
+---
+
+The **Pipeline Status** utility provides a comprehensive, read-only view of your current SDD pipeline state. It verifies artifact integrity, detects staleness, and recommends your next action.
+
+## When to use
+
+Invoke pipeline status when you need to:
+- Check which pipeline stages are complete and which are pending
+- Verify that all expected artifacts exist for completed stages
+- Identify stale stages that need re-execution
+- Get a recommendation for what to do next
+- Review recent change reports and cascade impact
+
+## Invocation
+
+```bash
+/sdd:pipeline-status
+```
+
+<Note>
+  This is a **read-only** skill. It never modifies files or executes pipeline stages.
+</Note>
+
+## How it works
+
+### 1. Read pipeline state
+
+Reads `pipeline-state.json` from your project root. If the file doesn't exist, the skill reports "No pipeline initialized" and recommends running `/sdd:setup`.
+
+### 2. Verify artifacts exist
+
+For each stage marked as `done`, verifies that expected output artifacts actually exist on disk:
+
+| Stage | Expected artifacts |
+|-------|-------------------|
+| requirements-engineer | `requirements/REQUIREMENTS.md` |
+| specifications-engineer | `spec/` with `domain-model.md`, `use-cases.md`, `workflows.md`, `contracts.md`, `nfr.md` |
+| spec-auditor | `audits/AUDIT-BASELINE.md` |
+| test-planner | `test/TEST-PLAN.md`, `test/TEST-MATRIX-*.md` |
+| plan-architect | `plan/PLAN.md`, `plan/ARCHITECTURE.md`, `plan/fases/FASE-*.md` |
+| task-generator | `task/TASK-FASE-*.md`, `task/TASK-INDEX.md` |
+| task-implementer | `src/` and/or `tests/` with implementation files |
+
+Any stage marked `done` whose artifacts are missing is flagged as **INCONSISTENT**.
+
+### 3. Detect staleness
+
+Checks if any `done` stage's output directory has files newer than the `lastRun` timestamp of downstream stages. Flags those downstream stages as **potentially stale**.
+
+### 4. Check for errors
+
+Reports any stage with `status: "error"` and includes the `staleReason` if present.
+
+### 5. Generate report
+
+Outputs a formatted report with:
+
+- **Pipeline status table**: Shows each stage's status, last run timestamp, artifact verification result, and notes
+- **Last change section**: If `pipeline-state.json` has the extended schema with `lastChange`, displays the change report ID, changed artifacts, invalidated stages, and cascade mode
+- **Recommended next action**: Suggests which skill to run next based on the current state
+- **Warnings**: Lists inconsistencies (missing artifacts, stale stages)
+
+## Example output
+
+```markdown
+## SDD Pipeline Status
+
+| # | Stage | Status | Last Run | Artifacts | Notes |
+|---|-------|--------|----------|-----------|-------|
+| 1 | requirements-engineer | done | 2026-01-15 | OK | — |
+| 2 | specifications-engineer | done | 2026-01-16 | OK | — |
+| 3 | spec-auditor | stale | 2026-01-14 | OK | Stale: specs modified after audit |
+| 4 | test-planner | pending | — | — | Not started |
+| 5 | plan-architect | pending | — | — | Not started |
+
+### Last Change
+- Change Report: CHG-2026-01-20-001
+- Changed Artifacts: requirements/, spec/
+- Invalidated Stages: plan-architect, task-generator
+- Cascade Mode: manual
+
+### Recommended Next Action
+> Run `spec-auditor` to re-audit the updated specifications.
+
+### Warnings
+- Stage 3 potentially stale (upstream modified after lastRun)
+```
+
+## Readiness gates
+
+No prerequisites. Works on any project directory (reports "No pipeline initialized" if needed).
+
+## Constraints
+
+- **Read-only**: Never modifies any files
+- **Reports facts only**: Does not execute pipeline stages
+- **Graceful degradation**: If `pipeline-state.json` has the extended schema, includes the `lastChange` section; otherwise skips it
+
+## Related skills
+
+<CardGroup cols={2}>
+  <Card title="Setup" icon="wrench" href="/installation">
+    Initialize pipeline state before first use
+  </Card>
+  <Card title="Dashboard" icon="chart-line" href="/utilities/dashboard">
+    Visual traceability dashboard with pipeline status
+  </Card>
+</CardGroup>

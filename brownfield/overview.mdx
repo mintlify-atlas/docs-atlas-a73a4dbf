@@ -1,0 +1,146 @@
+---
+title: Brownfield adoption overview
+description: Adopt SDD in existing projects with structured onboarding, import, reverse engineering, and reconciliation workflows.
+---
+
+The SDD Plugin provides a complete brownfield adoption strategy for integrating structured development into existing codebases. Whether you have a bare codebase with no documentation, comprehensive external docs, or partial SDD artifacts with drift, the plugin detects your project's state and generates a tailored adoption plan.
+
+## Brownfield workflow
+
+The brownfield adoption process follows four key steps:
+
+<Steps>
+  <Step title="Diagnose project state">
+    Run `/sdd:onboarding` to scan your project and classify it into one of 8 scenarios. The skill generates a comprehensive diagnostic report with a step-by-step action plan.
+  </Step>
+  <Step title="Import existing documentation">
+    Use `/sdd:import` to convert external documentation from Jira, OpenAPI, Markdown, Notion, CSV, or Excel into SDD format.
+  </Step>
+  <Step title="Reverse engineer from code">
+    Run `/sdd:reverse-engineer` to analyze your codebase and generate complete SDD artifacts including requirements, specifications, test plans, and architecture documentation.
+  </Step>
+  <Step title="Reconcile drift">
+    Use `/sdd:reconcile` to detect and resolve divergences between your SDD artifacts and the current codebase.
+  </Step>
+</Steps>
+
+## Eight project scenarios
+
+The onboarding skill classifies projects into eight distinct scenarios, each with a specific adoption strategy:
+
+<CardGroup cols={2}>
+  <Card title="Greenfield" icon="seedling">
+    No code, no docs. Start with the standard pipeline from `/sdd:requirements-engineer`.
+  </Card>
+  <Card title="Brownfield bare" icon="code">
+    Code exists with no documentation or tests. Run `/sdd:reverse-engineer` to bootstrap all SDD artifacts from the codebase.
+  </Card>
+  <Card title="SDD drift" icon="split">
+    SDD artifacts exist but have diverged from the code. Use `/sdd:reconcile` to detect and align differences.
+  </Card>
+  <Card title="Partial SDD" icon="list-check">
+    Some SDD artifacts exist but the pipeline is incomplete. Resume from the gap in the pipeline.
+  </Card>
+  <Card title="Brownfield with docs" icon="book">
+    Code and non-SDD documentation exist. Run `/sdd:import` to convert docs, then `/sdd:reverse-engineer` to fill gaps, then `/sdd:reconcile` to align.
+  </Card>
+  <Card title="Tests as spec" icon="flask">
+    Good test coverage but poor or missing documentation. Run `/sdd:reverse-engineer` with a test-first strategy to extract behavior from tests.
+  </Card>
+  <Card title="Multi-team" icon="users">
+    Monorepo or microservices with mixed states across modules. Perform per-module assessment with phased adoption.
+  </Card>
+  <Card title="Fork/migration" icon="code-branch">
+    Project forked from another codebase. Assess upstream artifacts, then run `/sdd:import` or `/sdd:reverse-engineer` for the delta.
+  </Card>
+</CardGroup>
+
+## Health scoring
+
+The onboarding skill calculates a health score (0-100) representing SDD readiness across seven dimensions:
+
+| Dimension | Weight | Criteria |
+|-----------|--------|----------|
+| Requirements coverage | 20 pts | 0=none, 10=informal docs, 20=SDD format |
+| Specification coverage | 20 pts | 0=none, 10=partial specs, 20=full spec/ |
+| Test coverage | 15 pts | 0=none, 8=some tests, 15=good coverage+plan |
+| Architecture documentation | 15 pts | 0=none, 8=README/diagrams, 15=SDD plan/ |
+| Traceability | 15 pts | 0=none, 8=partial refs, 15=full chain |
+| Code quality signals | 10 pts | 0=none, 5=linter, 10=types+linter+CI |
+| Pipeline state | 5 pts | 0=none, 3=partial, 5=complete pipeline-state.json |
+
+<Info>
+  Scores of 80-100 indicate SDD compliance with minor gaps only. Scores below 40 require systematic adoption.
+</Info>
+
+## Invocation modes
+
+All brownfield skills support multiple invocation modes for different use cases:
+
+```bash
+# Full diagnostic (default)
+/sdd:onboarding
+
+# Quick scan without deep analysis
+/sdd:onboarding --quick
+
+# Reassessment after partial adoption
+/sdd:onboarding --reassess
+
+# Import with automatic format detection
+/sdd:import path/to/api.yaml
+
+# Import with explicit format
+/sdd:import path/to/export.csv --format=jira
+
+# Reverse engineer full codebase
+/sdd:reverse-engineer
+
+# Reverse engineer specific modules
+/sdd:reverse-engineer --scope=src/api,src/models
+
+# Inventory only without artifact generation
+/sdd:reverse-engineer --inventory-only
+
+# Reconcile with dry run
+/sdd:reconcile --dry-run
+
+# Reconcile with code as source of truth
+/sdd:reconcile --code-wins
+```
+
+## Confidence and markers
+
+Brownfield skills tag artifacts with markers to indicate their origin and confidence level:
+
+| Marker | Meaning | Requires Review |
+|--------|---------|----------------|
+| `[IMPORTED]` | Artifact imported from external documentation | Yes |
+| `[INFERRED]` | Artifact derived from code patterns | Yes |
+| `[IMPLICIT-RULE]` | Business rule embedded in code without docs | Yes |
+| `[RECONCILED]` | Artifact updated during reconciliation | No |
+| `[RETROACTIVE]` | Task documenting already-implemented feature | No |
+| `[DEAD-CODE]` | Unreachable or unused code detected | Review recommended |
+| `[TECH-DEBT]` | Suboptimal implementation requiring future work | Review recommended |
+| `[WORKAROUND]` | Temporary fix or hack | Review recommended |
+
+<Warning>
+  All artifacts tagged with `[IMPORTED]`, `[INFERRED]`, or `[IMPLICIT-RULE]` require user validation before proceeding with downstream pipeline stages.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Onboarding skill" icon="clipboard-list" href="/brownfield/onboarding">
+    Learn how the onboarding skill diagnoses projects and generates adoption plans.
+  </Card>
+  <Card title="Import skill" icon="file-import" href="/brownfield/import">
+    Convert external documentation from Jira, OpenAPI, Notion, and more.
+  </Card>
+  <Card title="Reverse engineer skill" icon="magnifying-glass-chart" href="/brownfield/reverse-engineer">
+    Extract complete SDD artifacts from existing codebases.
+  </Card>
+  <Card title="Reconcile skill" icon="arrows-rotate" href="/brownfield/reconcile">
+    Detect and resolve drift between specs and code.
+  </Card>
+</CardGroup>
